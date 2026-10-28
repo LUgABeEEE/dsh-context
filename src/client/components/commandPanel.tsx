@@ -68,10 +68,10 @@ export function makeCommandPanel(kit: ViewKit): ComponentType<CommandPanelProps>
   const WINDOW_MIN_ROWS = 100
 
   function statusGlyphOf(rec: Command): { glyph: string; cls: string; tip: string } {
-    if (rec.status === 'running') return { glyph: '◐', cls: 'run', tip: t('cmds.status.running') }
+    if (rec.status === 'running') return { glyph: '⏳', cls: 'run', tip: t('cmds.status.running') }
     if (rec.status === 'completed') return { glyph: '✓', cls: 'ok', tip: t('cmds.status.completed') }
     if (rec.status === 'failed') return { glyph: '✕', cls: 'fail', tip: t('cmds.status.failed') }
-    return { glyph: '⊘', cls: 'kill', tip: t(rec.stopped === true ? 'cmds.status.stopped' : 'cmds.status.killed') }
+    return { glyph: '🛑', cls: 'kill', tip: t(rec.stopped === true ? 'cmds.status.stopped' : 'cmds.status.killed') }
   }
 
   /** One section card carrying the browser's copy + find pair; the find lens marks matches inside the keyed body only. */

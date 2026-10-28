@@ -47,6 +47,7 @@ describe('CommandPanel — rendering', () => {
     assert.ok(rows[1].includes('node .tmp/serve.mjs'))
     assert.ok(rows[1].includes('bg'))
     assert.ok(rows[1].includes('Running'))
+    assert.equal(text(queryAll(m.container, '.lc-cmd-st-run')[0]), '⏳', 'the running glyph is the hourglass emoji')
     assert.ok(rows[2].includes('pnpm exec vitest run tests/client'))
     assert.ok(rows[2].includes('20.0s'))
     assert.ok(rows[3].includes('git status --short'))
@@ -452,6 +453,7 @@ describe('CommandPanel — empty and channel states', () => {
       ],
     }))
     assert.equal(queryAll(m.container, '.lc-cmd-st-kill').length, 2)
+    assert.ok(queryAll(m.container, '.lc-cmd-st-kill').every(el => text(el) === '🛑'), 'the killed glyph is the stop-sign emoji')
     assert.ok(rowTexts(m.container).some(r => r.includes('pwsh')))
     await m.unmount()
   })
