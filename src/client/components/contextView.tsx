@@ -986,7 +986,23 @@ export function makeContextView(
     )
   }
 
+  /** The right Sidebar keeps a collapsed tab's body mounted (inert); skip the body entirely so neither the session
+   * projections nor the heavy cards stay live while nothing is on screen. The host hook is optional: without it the
+   * body's IntersectionObserver fallback still folds the cards away. */
+  function ContextViewGate(props: ContextViewProps): ReactElement {
+    if (props.host === 'sidebar') {
+      const useTabInfo = (props as ContextViewProps & {
+        useTabInfo?: () => { tab?: { visible?: boolean }; sidebar?: { expanded?: boolean } }
+      }).useTabInfo
+      if (typeof useTabInfo === 'function') {
+        const info = useTabInfo()
+        if (info.tab?.visible !== true) return h('div', { className: 'lc-root' })
+      }
+    }
+    return h(ContextViewBody, props)
+  }
+
   return function ContextView(props: ContextViewProps): ReactElement {
-    return h(ErrorBoundary, null, h(ContextViewBody, props))
+    return h(ErrorBoundary, null, h(ContextViewGate, props))
   }
 }
