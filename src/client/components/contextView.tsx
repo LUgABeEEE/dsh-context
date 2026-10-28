@@ -373,11 +373,13 @@ export function makeContextView(
     const onTeamClick = useCallback((): void => {
       if (!activateViewTab(t('tab.fleet'))) openContextSidebar(ctx)
     }, [t])
-    // The tool lane's pick: the browser's tool-results row opens with the tool's name in its text lens.
+    // The tool lane's pick: the browser's tool-results row opens with the tool's name in its text lens. A `skill`
+    // load is filed under Skill Injections instead, so a tool with such a load opens that bucket.
     const onToolPick = useCallback((tool: string): void => {
-      setCatFocus({ cat: 'tool', query: tool })
+      const inSkill = data?.nodes.some(n => n.tool === tool && n.cat === 'skill') === true
+      setCatFocus(inSkill ? { cat: 'skill' } : { cat: 'tool', query: tool })
       revealCard(rootRef.current, '.lc-col-browser')
-    }, [])
+    }, [data])
     const focusMember = useFleetMemberFocus(typeof sessionId === 'string' ? sessionId : undefined)
 
     // Restore the saved position in a layout effect, so the chat's bottom-anchored position never flashes in first.
