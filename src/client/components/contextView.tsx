@@ -302,7 +302,7 @@ export function makeContextView(
       if (kind !== null) setPickedKinds([kind])
       setEventsFocus(n => n + 1)
     }, [])
-    // The command lane's one-shot pick: the program the Command Executions card opens its query lens with.
+    // The command lane's one-shot pick: the program the Command Executions card opens its rail lens with.
     const [commandFocus, setCommandFocus] = useState<string | null>(null)
     const clearCommandFocus = useCallback(() => { setCommandFocus(null) }, [])
 
@@ -961,7 +961,7 @@ export function makeContextView(
             <CommandPanel key={sessionId} commands={fullCommandList} stats={data.commandStats} floor={data.commandsFloor}
               fill={commandLog}
               workspace={workspace} stampOf={opStampOf} onLocate={locateCommand} fetchContent={fetchContent}
-              focusQuery={commandFocus} onFocusQueryHandled={clearCommandFocus}
+              focusProgram={commandFocus} onFocusProgramHandled={clearCommandFocus}
               state={source.detailState} onRetry={source.retryDetail} />
           ) : (
             <div className="lc-card lc-col flex-1 min-w-[min(360px,100%)] lc-deferred-skeleton" style={{ minHeight: 320 }} aria-hidden="true" />

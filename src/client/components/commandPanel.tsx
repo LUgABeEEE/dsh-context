@@ -30,9 +30,9 @@ export interface CommandPanelProps {
   stampOf?: (seq: number) => { turn: number; step: number } | null
   /** Reveal the run's result message in the Context Browser; absent = no reveal affordance. */
   onLocate?: (rec: Command) => void
-  /** A one-shot text lens the panel opens with (the stats card's command pick seeds the program's name). */
-  focusQuery?: string | null
-  onFocusQueryHandled?: () => void
+  /** A one-shot program lens the panel opens with (the stats card's command chip). */
+  focusProgram?: string | null
+  onFocusProgramHandled?: () => void
   /** On-demand content for one surface-node seq; absent = the detail serves no result block. */
   fetchContent?: ContentFetcher
   state?: DetailState
@@ -151,7 +151,7 @@ export function makeCommandPanel(kit: ViewKit): ComponentType<CommandPanelProps>
     const q = query.trim().toLowerCase()
     const views = useMemo(() => viewsOf(commands, props.workspace), [commands, props.workspace])
     // The chip counts describe the search + picked-program scope (what picking a chip would show); the chip then
-    // narrows the list. The program ranking stays global, so none of the right-side filters move it.
+    // narrows the list. The rail's ranking and attention facts stay session-wide, so no list control moves them.
     const searched = useMemo(() => views.filter(view => matchesQuery(view.rec, q, view.program)), [views, q])
     const picked = useMemo(
       () => (programPick === null ? searched : searched.filter(view => view.program === programPick)),
@@ -170,7 +170,7 @@ export function makeCommandPanel(kit: ViewKit): ComponentType<CommandPanelProps>
       background: picked.filter(view => matchesFilter(view.rec, 'background')).length,
     }), [picked])
     const programs = useMemo(() => programsOf(views), [views])
-    const attention = useMemo(() => attentionOf(scoped), [scoped])
+    const attention = useMemo(() => attentionOf(views), [views])
     // A trimmed or refreshed log can drop a picked program; clearing the pick keeps the list from sticking empty.
     useEffect(() => {
       if (programPick === null || programs.some(p => p.name === programPick)) return
@@ -214,24 +214,37 @@ export function makeCommandPanel(kit: ViewKit): ComponentType<CommandPanelProps>
       const first = previewTextOf(cmd, props.workspace)
       return first.length > 34 ? first.slice(0, 34) + '…' : first
     }
-    /** An attention row is an exclusive lens: it clears the previous filter, query, sort and program pick before
-     *  applying its own. */
-    const applyLens = (patch: { filter?: CommandFilter; query?: string; sort?: CommandSort; program?: string | null }): void => {
+    type LensPatch = { filter?: CommandFilter; query?: string; sort?: CommandSort; program?: string | null }
+    const lensActive = (patch: LensPatch): boolean =>
+      (patch.filter ?? 'all') === filter &&
+      (patch.query ?? '') === query &&
+      (patch.sort ?? 'latest') === sort &&
+      (patch.program ?? null) === programPick
+    /** A rail lens is exclusive: it clears every other facet before applying its own. Clicking the active lens again
+     *  clears it outright. */
+    const applyLens = (patch: LensPatch): void => {
       setProgramPick(patch.program ?? null)
       setFilter(patch.filter ?? 'all')
       setQuery(patch.query ?? '')
       setSort(patch.sort ?? 'latest')
     }
-    // The stats card's pick is one-shot: hand the slot back so the same program can fire again.
-    const focusQuery = props.focusQuery
-    useEffect(() => {
-      if (focusQuery === undefined || focusQuery === null) return
+    // The search box is the visible text lens: typing releases any program pick it was showing.
+    const changeQuery = (value: string): void => {
       setProgramPick(null)
-      setFilter('all')
-      setQuery(focusQuery)
-      setSort('latest')
-      props.onFocusQueryHandled?.()
-    }, [focusQuery, props.onFocusQueryHandled])
+      setQuery(value)
+    }
+    /** A program pick writes its name into the search box, so the box never disagrees with the rail's highlight. */
+    const pickProgram = (name: string | null): void => {
+      setProgramPick(name)
+      setQuery(name ?? '')
+    }
+    // The stats card's pick is one-shot: hand the slot back so the same program can fire again.
+    const focusProgram = props.focusProgram
+    useEffect(() => {
+      if (focusProgram === undefined || focusProgram === null) return
+      applyLens({ query: focusProgram, program: focusProgram })
+      props.onFocusProgramHandled?.()
+    }, [focusProgram, props.onFocusProgramHandled])
 
     interface AttentionRow {
       key: string
@@ -239,26 +252,32 @@ export function makeCommandPanel(kit: ViewKit): ComponentType<CommandPanelProps>
       value: string
       n: string
       title?: string
+      active: boolean
       apply: () => void
     }
     const attentionRows: AttentionRow[] = []
+    const pushAttention = (row: Omit<AttentionRow, 'active' | 'apply'>, lens: LensPatch): void => {
+      const active = lensActive(lens)
+      attentionRows.push({ ...row, active, apply: () => { applyLens(active ? {} : lens) } })
+    }
     if (attention.slowest !== undefined) {
       const s = attention.slowest
-      attentionRows.push({ key: 'slowest', label: t('cmds.rail.slowest'), value: railPreview(s.cmd), n: fmtDuration(s.ms), title: s.cmd, apply: () => { applyLens({ sort: 'slowest' }) } })
+      // The box carries the run's first line (a whole multiline script would swamp it); the sort surfaces the run.
+      pushAttention({ key: 'slowest', label: t('cmds.rail.slowest'), value: railPreview(s.cmd), n: fmtDuration(s.ms), title: s.cmd }, { query: previewTextOf(s.cmd, props.workspace), sort: 'slowest' })
     }
     if (attention.failing !== undefined) {
       const f = attention.failing
-      // The pick lands on exactly the named program's failures; a text query would also catch look-alikes.
-      attentionRows.push({ key: 'failing', label: t('cmds.rail.failing'), value: f.program, n: '×' + fmt(f.count), apply: () => { applyLens({ filter: 'failed', program: f.program }) } })
+      // The pick lands on exactly the named program's failures; the text lens also shows the program in the box.
+      pushAttention({ key: 'failing', label: t('cmds.rail.failing'), value: f.program, n: '×' + fmt(f.count) }, { filter: 'failed', program: f.program, query: f.program })
     }
     if (attention.repeats !== undefined) {
       const r = attention.repeats
       // The full text searches exactly the repeated command (a prefix would catch look-alikes).
-      attentionRows.push({ key: 'repeats', label: t('cmds.rail.repeats'), value: railPreview(r.cmd), n: '×' + fmt(r.count), title: r.cmd, apply: () => { applyLens({ query: r.cmd }) } })
+      pushAttention({ key: 'repeats', label: t('cmds.rail.repeats'), value: railPreview(r.cmd), n: '×' + fmt(r.count), title: r.cmd }, { query: r.cmd })
     }
     if (attention.background !== undefined) {
       const bg = attention.background
-      attentionRows.push({ key: 'background', label: t('cmds.rail.bgRuns'), value: '', n: '×' + fmt(bg), apply: () => { applyLens({ filter: 'background' }) } })
+      pushAttention({ key: 'background', label: t('cmds.rail.bgRuns'), value: '', n: '×' + fmt(bg) }, { filter: 'background' })
     }
     const totalPrograms = Math.max(1, programs.reduce((sum, p) => sum + p.n, 0))
     const topProgramN = Math.max(1, ...programs.map(p => p.n))
@@ -311,13 +330,14 @@ export function makeCommandPanel(kit: ViewKit): ComponentType<CommandPanelProps>
         </div>
         {attentionRows.length > 0 ? (
           <div className="lc-cmd-rail-sec lc-cmd-attn">
-            <div className="lc-cmd-rail-h">{t('cmds.rail.attention')}</div>
+            <div className="lc-cmd-rail-h" title={t('cmds.rail.attentionTip')}>{t('cmds.rail.attention')}</div>
             {attentionRows.map(row => (
               <button
                 key={row.key}
                 type="button"
-                className={'lc-cmd-attn-row lc-cmd-attn-' + row.key + ' hover:bg-(--dsw-alias-interactive-bg-hover)'}
+                className={'lc-cmd-attn-row lc-cmd-attn-' + row.key + (row.active ? ' lc-cmd-attn-on' : '') + ' hover:bg-(--dsw-alias-interactive-bg-hover)'}
                 title={row.title}
+                aria-pressed={row.active}
                 onClick={row.apply}
               >
                 <i className="lc-cmd-attn-dot" />
@@ -354,7 +374,7 @@ export function makeCommandPanel(kit: ViewKit): ComponentType<CommandPanelProps>
                     className={'lc-cmd-prog' + (programPick === p.name ? ' lc-cmd-prog-on' : '')}
                     title={t(programPick === p.name ? 'cmds.rail.topTipOn' : 'cmds.rail.topTip', { name: p.name })}
                     aria-pressed={programPick === p.name}
-                    onClick={() => { setProgramPick(cur => (cur === p.name ? null : p.name)) }}
+                    onClick={() => { pickProgram(programPick === p.name ? null : p.name) }}
                   >
                     <i className="lc-cmd-prog-dot" style={{ background: color }} />
                     <span className="lc-cmd-prog-name">{p.name}</span>
@@ -548,7 +568,7 @@ export function makeCommandPanel(kit: ViewKit): ComponentType<CommandPanelProps>
                 value={query}
                 placeholder={t('cmds.search')}
                 clearLabel={t('field.clear')}
-                onChange={setQuery}
+                onChange={changeQuery}
               />
               <span className="lc-gran lc-fa-sort" role="group" title={t('cmds.sortTip')}>
                 {SORTS.map(k => (

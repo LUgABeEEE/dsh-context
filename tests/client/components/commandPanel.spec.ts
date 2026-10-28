@@ -112,23 +112,27 @@ describe('CommandPanel — command coloring', () => {
 })
 
 describe('CommandPanel — filtering, search, sort', () => {
-  test('a focus query seeds the lens once and hands the slot back', async () => {
+  test('a focus program seeds the lens once and hands the slot back', async () => {
     const handled: string[] = []
-    const m = await mount(h(Panel, { commands: richCommands(), focusQuery: 'vitest', onFocusQueryHandled: () => { handled.push('vitest') }, }))
+    const m = await mount(h(Panel, { commands: richCommands(), focusProgram: 'pnpm', onFocusProgramHandled: () => { handled.push('pnpm') }, }))
+    const box = () => query<HTMLInputElement>(m.container, 'input.lc-fa-search').value
     assert.equal(rowTexts(m.container).length, 1, 'the seeded lens narrows to the program')
     assert.ok(rowTexts(m.container)[0].includes('vitest'))
-    assert.equal(query<HTMLInputElement>(m.container, 'input.lc-fa-search').value, 'vitest', 'the box shows the lens')
-    assert.deepEqual(handled, ['vitest'], 'the slot is handed back')
+    assert.equal(box(), 'pnpm', 'the box shows the program lens')
+    assert.equal(queryAll(m.container, '.lc-cmd-prog-on').length, 1, 'the seeded program is highlighted')
+    assert.deepEqual(handled, ['pnpm'], 'the slot is handed back')
     await m.update(h(Panel, {
       commands: richCommands(),
-      focusQuery: 'python3',
-      onFocusQueryHandled: () => { handled.push('python3') },
+      focusProgram: 'python3',
+      onFocusProgramHandled: () => { handled.push('python3') },
     }))
     assert.equal(rowTexts(m.container).length, 1)
     assert.ok(rowTexts(m.container)[0].includes('python3'))
-    assert.deepEqual(handled, ['vitest', 'python3'])
+    assert.equal(box(), 'python3')
+    assert.deepEqual(handled, ['pnpm', 'python3'])
     await m.update(h(Panel, { commands: richCommands() }))
     assert.equal(rowTexts(m.container).length, 1, 'the seeded lens persists')
+    assert.equal(box(), 'python3')
     await m.unmount()
   })
 
@@ -163,7 +167,7 @@ describe('CommandPanel — filtering, search, sort', () => {
     await m.unmount()
   })
 
-  test('the chips count the filtered rows; the ranking stays global', async () => {
+  test('the chips count the filtered rows; the rail stays session-wide and every pick writes the box', async () => {
     const commands: Command[] = [
       cmd(1, { cmd: 'cat README.md' }),
       cmd(2, { cmd: 'echo hi && cat package.json' }),
@@ -173,17 +177,20 @@ describe('CommandPanel — filtering, search, sort', () => {
     ]
     const m = await mount(h(Panel, { commands }))
     const progs = () => queryAll(m.container, '.lc-cmd-prog').map(p => text(p))
+    const attention = () => queryAll(m.container, '.lc-cmd-attn-row').map(r => text(r))
     const ranking = progs()
+    const sessionAttention = attention()
+    const box = () => query<HTMLInputElement>(m.container, 'input.lc-fa-search').value
     assert.equal(ranking.length, 4, 'cat, echo, sleep, ls')
     assert.ok(ranking.some(p => p.startsWith('cat') && p.includes('×2') && p.includes('40%')))
+    assert.ok(sessionAttention.some(r => r.includes('Slowest') && r.includes('cat missing.txt')))
+    assert.ok(sessionAttention.some(r => r.includes('Failing') && r.includes('cat')))
+    assert.ok(sessionAttention.some(r => r.includes('Background')))
     await typeSearch(m.container, 'cat')
     assert.equal(rowTexts(m.container).length, 3)
     assert.deepEqual(chipCounts(m.container), ['3', '1', '1', '0'], 'the chips count the search matches')
     assert.deepEqual(progs(), ranking, 'the search does not move the ranking')
-    const attn = queryAll(m.container, '.lc-cmd-attn-row').map(r => text(r))
-    assert.ok(attn.some(r => r.includes('Slowest') && r.includes('cat missing.txt')))
-    assert.ok(attn.some(r => r.includes('Failing') && r.includes('cat')))
-    assert.ok(!attn.some(r => r.includes('Background')))
+    assert.deepEqual(attention(), sessionAttention, 'the attention facts stay session-wide under the search')
     const progBtn = (name: string) => {
       const hit = queryAll(m.container, '.lc-cmd-prog').find(b => text(b).startsWith(name))
       if (hit === undefined) throw new Error(`program row not found: ${name}`)
@@ -194,27 +201,34 @@ describe('CommandPanel — filtering, search, sort', () => {
     assert.ok(rowTexts(m.container).some(r => r.includes('cat README.md')))
     assert.ok(rowTexts(m.container).some(r => r.includes('cat missing.txt')))
     assert.deepEqual(progs(), ranking, 'the pick does not move the ranking')
+    assert.deepEqual(attention(), sessionAttention, 'the pick does not move the attention facts')
     assert.deepEqual(chipCounts(m.container), ['2', '1', '1', '0'], 'the chips count the picked scope')
     assert.ok(progBtn('cat').className.includes('lc-cmd-prog-on'))
     assert.equal(progBtn('cat').getAttribute('aria-pressed'), 'true')
     assert.ok((progBtn('cat').getAttribute('title') ?? '').includes('Clear'))
-    assert.equal(query<HTMLInputElement>(m.container, 'input.lc-fa-search').value, 'cat', 'the pick keeps the text lens')
+    assert.equal(box(), 'cat', 'the pick writes its name into the filter box')
     await click(progBtn('echo'))
     assert.equal(rowTexts(m.container).length, 1)
     assert.ok(rowTexts(m.container)[0].includes('echo hi && cat package.json'))
     assert.deepEqual(chipCounts(m.container), ['1', '0', '0', '0'])
+    assert.equal(box(), 'echo', 'the new pick replaces the box text')
     assert.equal(progBtn('cat').getAttribute('aria-pressed'), 'false')
     assert.ok((progBtn('cat').getAttribute('title') ?? '').includes('Filter'))
     await typeSearch(m.container, 'package')
     assert.equal(rowTexts(m.container).length, 1)
-    assert.equal(progBtn('echo').getAttribute('aria-pressed'), 'true', 'the pick survives the search')
+    assert.equal(box(), 'package')
+    assert.equal(progBtn('echo').getAttribute('aria-pressed'), 'false', 'editing the box releases the program pick')
     assert.deepEqual(progs(), ranking)
     await typeSearch(m.container, 'cat')
-    assert.equal(rowTexts(m.container).length, 1, 'still the echo-headed chain')
+    assert.equal(rowTexts(m.container).length, 3, 'the text lens stands alone')
     await click(progBtn('echo'))
-    assert.equal(rowTexts(m.container).length, 3)
+    assert.equal(rowTexts(m.container).length, 1)
+    assert.equal(box(), 'echo')
+    await click(progBtn('echo'))
+    assert.equal(rowTexts(m.container).length, 5, 'the second click clears the program and the box')
+    assert.equal(box(), '')
     assert.equal(queryAll(m.container, '.lc-cmd-prog-on').length, 0)
-    assert.deepEqual(chipCounts(m.container), ['3', '1', '1', '0'])
+    assert.deepEqual(chipCounts(m.container), ['5', '1', '1', '1'])
     await click(progBtn('cat'))
     assert.equal(rowTexts(m.container).length, 2)
     const failedChip = queryAll(m.container, '.lc-cmd-chips .lc-gran-btn').find(b => text(b).startsWith('Failed'))
@@ -222,6 +236,7 @@ describe('CommandPanel — filtering, search, sort', () => {
     await click(failedChip)
     assert.equal(rowTexts(m.container).length, 1, 'the failed cat run')
     assert.equal(progBtn('cat').getAttribute('aria-pressed'), 'true', 'the chip keeps the pick')
+    assert.equal(box(), 'cat', 'the chip does not disturb the box')
     assert.deepEqual(chipCounts(m.container), ['2', '1', '1', '0'])
     const allChip = queryAll(m.container, '.lc-cmd-chips .lc-gran-btn').find(b => text(b).startsWith('All'))
     assert.ok(allChip !== undefined)
@@ -235,7 +250,7 @@ describe('CommandPanel — filtering, search, sort', () => {
       ],
     }))
     assert.equal(queryAll(m.container, '.lc-cmd-prog-on').length, 0, 'the vanished pick clears')
-    assert.equal(rowTexts(m.container).length, 1, 'the echo chain matches the search again')
+    assert.equal(rowTexts(m.container).length, 1, 'the command text still matches the search')
     assert.equal(queryAll(m.container, '.lc-cmd-prog').length, 3, 'the new retained log re-ranks')
     await m.unmount()
 
@@ -249,7 +264,7 @@ describe('CommandPanel — filtering, search, sort', () => {
     assert.deepEqual(chipCounts(outside.container), ['2', '0', '0', '0'])
     await typeSearch(outside.container, 'nothing-matches')
     assert.ok(text(outside.container).includes('No commands match the current filters'))
-    assert.equal(queryAll(outside.container, '.lc-cmd-attn').length, 0, 'no attention rows under the search')
+    assert.equal(queryAll(outside.container, '.lc-cmd-attn').length, 1, 'the attention section stays session-wide under the search')
     assert.deepEqual(outsideProgs(), outsideRanking, 'an empty search result keeps the ranking')
     await outside.unmount()
   })
