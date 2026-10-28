@@ -15,13 +15,16 @@ import { makeRichText } from './richText'
 import { IconShare } from '../primitives'
 import { Section } from './section'
 import { useRowWindow } from './useRowWindow'
+import type { CommandFill } from './useCommandLog'
 
 export interface CommandPanelProps {
   commands: Command[]
   /** Whole-log tallies (survive list trimming); absent = the retained list counts itself. */
   stats?: CommandStats
-  /** Set when the log trimmed: the list covers only the latest runs. */
+  /** Set when the log trimmed: the list may still be filling toward the log's start. */
   floor?: number
+  /** The history fill's status; absent = the served list is final. */
+  fill?: CommandFill
   workspace?: string
   /** The turn/step whose request first carried a run's result node, by node seq; absent = rows print no stamps. */
   stampOf?: (seq: number) => { turn: number; step: number } | null
@@ -115,6 +118,9 @@ export function makeCommandPanel(kit: ViewKit): ComponentType<CommandPanelProps>
       return highlightRuns(grammar === 'bash' ? highlightShell : highlightPwsh, grammar, text)
     }
     const { commands } = props
+    const fillStatus = props.fill?.status ?? 'idle'
+    const fillTotal = props.fill?.total
+    const retryFill = props.fill?.retry
     const [filter, setFilter] = useState<CommandFilter>('all')
     const [sort, setSort] = useState<CommandSort>('latest')
     const [query, setQuery] = useState('')
@@ -264,6 +270,29 @@ export function makeCommandPanel(kit: ViewKit): ComponentType<CommandPanelProps>
 
     const loadingChannel = commands.length === 0 && props.state === 'loading'
     const failedChannel = commands.length === 0 && props.state === 'failed'
+    // The fill's status sits ahead of the list: below a long list it would never be seen. A completed fill drops the
+    // note — the list then covers the whole log.
+    const fillNote = ((): ReactNode => {
+      if (props.floor === undefined || commands.length === 0 || fillStatus === 'done') return null
+      if (fillStatus === 'loading') {
+        return (
+          <div className="lc-cmd-floor">
+            {fillTotal !== undefined
+              ? t('cmds.coverageLoading', { n: fmt(commands.length), total: fmt(fillTotal) })
+              : t('cmds.loadingEarlier')}
+          </div>
+        )
+      }
+      if (fillStatus === 'failed') {
+        return (
+          <div className="lc-cmd-floor">
+            {t('cmds.coverageFailed', { n: fmt(commands.length) })}
+            <button type="button" className="lc-cmd-floor-btn" onClick={retryFill}>{t('cmds.coverageRetry')}</button>
+          </div>
+        )
+      }
+      return <div className="lc-cmd-floor">{t('cmds.coverage', { n: fmt(commands.length) })}</div>
+    })()
     const showRail = !loadingChannel && !failedChannel
     const totalTime = commands.length === 0 ? '0' : fmtDuration(tally.ms)
     const rail = showRail ? (
@@ -534,10 +563,7 @@ export function makeCommandPanel(kit: ViewKit): ComponentType<CommandPanelProps>
                 ))}
               </span>
             </div>
-            {/* The trim floor sits ahead of the list: below a long list it would never be seen. */}
-            {props.floor !== undefined && commands.length > 0 ? (
-              <div className="lc-cmd-floor">{t('cmds.coverage', { n: fmt(commands.length) })}</div>
-            ) : null}
+            {fillNote}
             {loadingChannel ? (
               <DetailNote state="loading" className="lc-empty lc-lane" />
             ) : failedChannel ? (

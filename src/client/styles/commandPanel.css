@@ -1,6 +1,6 @@
 /* The command panel: a 1:2 summary-rail + list split. Rows never wrap (the preview ellipsizes), so heights stay
    uniform at any width and `content-visibility: auto` skips offscreen paint. The card caps its height and the list
-   scrolls inside — an uncapped 400-row wall would keep growing the page and fight the conversation scroll's
+   scrolls inside — an uncapped wall of rows would keep growing the page and fight the conversation scroll's
    bottom anchor (every streamed command re-asserted the bottom mid-drag). */
 .lc-cmd-card { max-height: 560px; display: flex; flex-direction: column; }
 .lc-cmd-card .lc-card-title { align-content: center; flex: none; }
@@ -15,6 +15,7 @@
 .lc-cmd-chip-background, .lc-cmd-chip-background:hover { color: var(--color-teal-500); }
 .lc-cmd-chip-background.lc-gran-on, .lc-cmd-chip-background.lc-gran-on:hover { background: color-mix(in srgb, var(--color-teal-500) 14%, transparent); color: var(--color-teal-500); }
 .lc-cmd-floor { margin: 0 0 6px; font-size: 11px; color: var(--dsw-alias-label-secondary); }
+.lc-cmd-floor-btn { border: 0; background: transparent; padding: 0 0 0 6px; font: inherit; font-size: 11px; color: var(--dsw-alias-state-business-primary); text-decoration: underline; cursor: pointer; }
 
 /* ── The two-column body ── */
 .lc-cmd-body { display: grid; grid-template-columns: minmax(200px, 1fr) minmax(0, 2fr); gap: 16px; flex: 1; min-height: 0; }

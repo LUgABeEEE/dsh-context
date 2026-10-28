@@ -29,6 +29,8 @@ import { makeEventList } from './events'
 import { makeFileCard } from './fileCard'
 import type { FileFilter } from './fileCard'
 import { makeCommandPanel } from './commandPanel'
+import { makeCommandPager } from '../commandPages'
+import { useCommandLog } from './useCommandLog'
 import { makePluginInfo } from './pluginInfo'
 import { makeUpgradeGate } from './upgradeGate'
 import { makeRequestDetail } from './requestDetail'
@@ -277,6 +279,11 @@ export function makeContextView(
         ? makeHeaderFetcher(() => sessionAddressOf(ctx, sessionId))
         : undefined),
       [ctx, sessionId, historyFace],
+    )
+    // The command card's older-history reader; the inline generation has no route, so it stays unpassed there.
+    const fetchOlderCommands = useMemo(
+      () => (typeof sessionId === 'string' && sessionId !== '' ? makeCommandPager(sessionId) : undefined),
+      [sessionId],
     )
 
     const rootRef = useRef<HTMLDivElement | null>(null)
@@ -547,17 +554,23 @@ export function makeContextView(
       const records = data.commands
       return cachedByData(data, 'commands', () => commandsOf(records, data.archive))
     }, [data])
+    // The full command history behind the card and the stats lane: the served slice paints first, older pages fill in.
+    const commandLog = useCommandLog(
+      commandList,
+      data?.commandsFloor,
+      source.detailState === 'legacy' ? undefined : fetchOlderCommands,
+    )
+    const fullCommandList = commandLog.records
     const workspace = typeof ctx.get === 'function' ? workspaceOf(ctx, typeof sessionId === 'string' ? sessionId : undefined) : undefined
-    // The stats card's command lane: the whole-log run tally (host-served, else the retained list's own) and the
-    // retained log's top programs.
+    // The stats card's command lane: the whole-log run tally (host-served, else the full list's own) and its programs.
     const commandBoard = useMemo(() => {
-      if (commandList.length === 0) return { runs: 0, top: [] as [string, number][] }
-      const stats = data?.commandStats ?? tallyOfCommands(commandList)
-      const top = programsOf(viewsOf(commandList, workspace)).map(p => [p.name, p.n] as [string, number])
+      if (fullCommandList.length === 0) return { runs: 0, top: [] as [string, number][] }
+      const stats = data?.commandStats ?? tallyOfCommands(fullCommandList)
+      const top = programsOf(viewsOf(fullCommandList, workspace)).map(p => [p.name, p.n] as [string, number])
       return { runs: stats.runs, top }
-    }, [commandList, data, workspace])
+    }, [fullCommandList, data, workspace])
     // The lane's chips only offer the jump when the card can serve it (the collection exists on this host).
-    const hasCommands = commandList.length > 0
+    const hasCommands = fullCommandList.length > 0
     // The capability is an async RPC answer, so file names stay inert until the probe settles.
     const [canOpenPaths, setCanOpenPaths] = useState(false)
     useEffect(() => {
@@ -945,7 +958,8 @@ export function makeContextView(
         <div className="lc-cols" ref={cmdsRef}>
           {cmdsMounted ? (
             /* Keyed like the trend faces: a session switch resets the panel's filter/query/expanded-row state. */
-            <CommandPanel key={sessionId} commands={commandList} stats={data.commandStats} floor={data.commandsFloor}
+            <CommandPanel key={sessionId} commands={fullCommandList} stats={data.commandStats} floor={data.commandsFloor}
+              fill={commandLog}
               workspace={workspace} stampOf={opStampOf} onLocate={locateCommand} fetchContent={fetchContent}
               focusQuery={commandFocus} onFocusQueryHandled={clearCommandFocus}
               state={source.detailState} onRetry={source.retryDetail} />
