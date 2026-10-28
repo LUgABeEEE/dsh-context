@@ -36,7 +36,7 @@ Complete ALL of these before ANY commit:
 - Close out the to-do list, ensuring every item is completed, cleaned up or explicitly closed.
 - Review the full diff independently: every change necessary, correct, and not over-engineered.
 - Clean up generated temporary files and temporary or unhelpful comments.
-- Load the [code-review](https://github.com/mattpocock/skills/tree/main/skills/engineering/code-review) skill, run it to review all the changes.
+- Load the [code-review](https://github.com/mattpocock/skills/blob/main/skills/engineering/code-review/SKILL.md) skill, run it to review all the changes.
   - Independently verify or follow each of its suggestions after its multi-axis analysis done. 
   - Tell its subagents to skip typecheck, lint, and test coverage, which the main agent covers.
   - Pass its subagents the relevant filenames and line number ranges during the work.
