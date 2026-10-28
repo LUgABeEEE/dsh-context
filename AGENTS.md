@@ -17,17 +17,7 @@ A DeepSeek Harness plugin for context insight, actions, and management.
   - Example plugins: GitHub topic `dsh-plugin` — https://github.com/topics/dsh-plugin
 
 ## Coding
-- Make the minimal change that fully solves the problem, with the most efficient implementation.
-- User experience, features, and especially the data accuracy and integrity are the top priority. Never sacrifice them for code refactors, performance, or any other reason. Dive deep and run real tests to verify the correctness of every change.
-- Reuse the classes, utilities, styles, style tokens, events, presets, and lifecycles that DeepSeek Harness already provides.
-- Keep code and tests small, loosely coupled, and modular; avoid duplication. Reuse existing test suites, cases and assertions where possible. Drop and shrink any code or test that is outdated and no longer needed.
-- After updating tests, firstly run `pnpm exec vitest run tests/<area>/<name>.spec.ts -t "<test case name>"` (regex, use `"a|b"`) to iterate on the touched test cases.
-- Ensure every source code file or test code file has less than 1000 lines.
-- Comments: default to none. Never add one unless it records a non-obvious decision, constraint, or invariant the code cannot express — if you cannot name that reason, do not write it.
-- Never narrate what the code does, restate names or types, or explain the change you just made.
-- When touching code, delete or shrink comments that repeat the code, state the obvious, or are outdated; reducing the comment count is always welcome.
-- Write comments, documentation, PR descriptions, and commit messages in English.
-- Generate one-time temp files in the `.tmp` directory and clean them up right after use.
+- Follow the [CODING_STANDARD.md](./CODING_STANDARD.md) for all code and tests.
 
 ## Pre-commit checks
 
