@@ -1,6 +1,6 @@
-import { createElement as h, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
+import { createElement as h, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { Category, ContextEventRecord, RequestRecord, SurfaceNode } from '../../shared/types'
-import { CATS } from '../categories'
+import { TrendReserved } from './trendReserved'
 import { briefNodes, briefOf } from '../brief'
 import { headlineOf } from '../headline'
 import type { ContextViewProps } from '../services'
@@ -18,6 +18,7 @@ import type { Command } from '../commands'
 import type { ContextSettings } from '../settings'
 import { overviewThresholdOf } from '../settings'
 import type { ViewKit } from '../viewkit'
+import { IconCompareSplit, IconContextInjection } from '../primitives'
 import type { AgentHeads } from '../agentHeads'
 import { agentSelfOf, providerModelLabelOf } from '../agentTree'
 import { makeContextBrowser } from './browser'
@@ -95,29 +96,6 @@ export function browserCapOf(cards: readonly { top: number; bottom: number }[]):
   if (first === undefined || last === undefined) return null
   const span = last.bottom - first.top
   return Number.isFinite(span) && span > 0 ? Math.ceil(span) : null
-}
-
-/** The trend card's reserved body, so the pending and loaded states measure the same boxes (trendChart.css, requestDetail.css). */
-function TrendReserved(props: { children: ReactNode; catLabel: (cat: Category | 'system' | 'tools') => string }): ReactElement {
-  return (
-    <div className="lc-trend-lane">
-      <div className="lc-trend-plot">{props.children}</div>
-      <div className="lc-detail">
-        <div className="lc-detail-head" />
-        <div className="lc-brief" />
-        <div className="lc-stacked-wrap"><div className="lc-stacked" /></div>
-        <div className="lc-legend">
-          {CATS.map(c => (
-            <span key={c.key} className="lc-chip">
-              <i style={{ background: c.color }} />
-              <span className="lc-chip-label">{props.catLabel(c.key)}</span>
-              <span className="lc-chip-nums" />
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
 }
 
 export function makeContextView(
@@ -736,7 +714,10 @@ export function makeContextView(
     const trendCard = (
       <div className="lc-card" data-lc-trend>
         <div className="lc-card-title">
-          <span className="lc-card-title-text">{t('trend.title')}</span>
+          <span className="lc-card-title-text">
+            <IconCompareSplit size={14} />
+            {t('trend.title')}
+          </span>
           <span className="lc-gran lc-trend-mods" role="group">
             <button
               type="button"
@@ -921,7 +902,10 @@ export function makeContextView(
           {belowFoldMounted ? (<>
             <div className="lc-card lc-events-card lc-col flex-1 min-w-[min(360px,100%)]">
               <div className="lc-card-title">
-                <span className="lc-card-title-text">{t('events.title')}</span>
+                <span className="lc-card-title-text">
+                  <IconContextInjection size={14} />
+                  {t('events.title')}
+                </span>
                 <div className="lc-kinds @max-[380px]/lc-card:flex-wrap">
                   {EVENT_KINDS.map((k) => {
                     const n = kindCounts[k]

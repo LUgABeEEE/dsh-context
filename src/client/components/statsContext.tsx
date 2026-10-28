@@ -12,6 +12,7 @@ import { nameColorOf } from '../nameColor'
 import { type ClientCtx } from '../services'
 import { isDeepSeekProvider } from '../../shared/providers'
 import type { ViewKit } from '../viewkit'
+import { IconData } from '../primitives'
 
 interface PriceRow { key: string; face: PriceFace }
 interface PriceMissRow { key: string; provider: string; model: string; miss: PriceMiss }
@@ -459,7 +460,10 @@ export function makeStatsContext(
     return (
       <div className="lc-card flex-[3] min-w-[min(360px,100%)]">
         <div className="lc-card-title">
-          <span className="lc-card-title-text">{t('stats.title')}</span>
+          <span className="lc-card-title-text">
+            <IconData size={14} />
+            {t('stats.title')}
+          </span>
         </div>
         <div className="lc-stats">
           <div className="lc-ledger">

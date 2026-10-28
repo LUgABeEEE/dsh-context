@@ -12,7 +12,7 @@ import type { ViewKit } from '../viewkit'
 import { ClearableInput } from './clearableInput'
 import { makeDetailNote } from './detailNote'
 import { makeRichText } from './richText'
-import { IconShare } from '../primitives'
+import { IconApi, IconShare } from '../primitives'
 import { Section } from './section'
 import { useRowWindow } from './useRowWindow'
 import type { CommandFill } from './useCommandLog'
@@ -546,7 +546,10 @@ export function makeCommandPanel(kit: ViewKit): ComponentType<CommandPanelProps>
     return (
       <div className="lc-card lc-cmd-card lc-col flex-1 min-w-[min(360px,100%)]">
         <div className="lc-card-title">
-          <span className="lc-card-title-text">{t('cmds.title')}</span>
+          <span className="lc-card-title-text">
+            <IconApi size={14} />
+            {t('cmds.title')}
+          </span>
           <div className="lc-gran lc-cmd-chips @max-[380px]/lc-card:flex-wrap">
             {FILTERS.map(f => (
               <button
