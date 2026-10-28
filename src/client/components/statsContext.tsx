@@ -65,7 +65,7 @@ export function makeSubagentCost(
 ): (sessionId: string | undefined) => SubagentStats {
   return function useSubagentCost(sessionId: string | undefined): SubagentStats {
     const face = useMemo(() => sessionsFaceOf(ctx), [])
-    const snapshot = useSessionsSnapshot(face)
+    const snapshot = useSessionsSnapshot(face, 250)
     const [landed, setLanded] = useState<ReadonlyMap<string, ContextTimeline>>(new Map())
     const fold = useMemo(
       () => subagentCostFoldOf(snapshot, sessionId, landed),
@@ -75,6 +75,7 @@ export function makeSubagentCost(
     useEffect(() => {
       for (const id of fold.cold) {
         void heads.headOf(id).then((head) => {
+          /* v8 ignore next 1 -- the cold list holds an id until its head lands, so one landing cannot replay. */
           if (head !== null) setLanded(prev => prev.get(id) === head ? prev : new Map(prev).set(id, head))
         }).catch(() => {})
       }
