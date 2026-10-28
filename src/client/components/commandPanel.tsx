@@ -331,21 +331,23 @@ export function makeCommandPanel(kit: ViewKit): ComponentType<CommandPanelProps>
         {attentionRows.length > 0 ? (
           <div className="lc-cmd-rail-sec lc-cmd-attn">
             <div className="lc-cmd-rail-h" title={t('cmds.rail.attentionTip')}>{t('cmds.rail.attention')}</div>
-            {attentionRows.map(row => (
-              <button
-                key={row.key}
-                type="button"
-                className={'lc-cmd-attn-row lc-cmd-attn-' + row.key + (row.active ? ' lc-cmd-attn-on' : '') + ' hover:bg-(--dsw-alias-interactive-bg-hover)'}
-                title={row.title}
-                aria-pressed={row.active}
-                onClick={row.apply}
-              >
-                <i className="lc-cmd-attn-dot" />
-                <span className="lc-cmd-attn-k">{row.label}</span>
-                <span className="lc-cmd-attn-v">{row.value}</span>
-                <span className="lc-cmd-attn-n">{row.n}</span>
-              </button>
-            ))}
+            <div className="lc-cmd-attn-rows">
+              {attentionRows.map(row => (
+                <button
+                  key={row.key}
+                  type="button"
+                  className={'lc-cmd-attn-row lc-cmd-attn-' + row.key + (row.active ? ' lc-cmd-attn-on' : '')}
+                  title={row.title}
+                  aria-pressed={row.active}
+                  onClick={row.apply}
+                >
+                  <i className="lc-cmd-attn-dot" />
+                  <span className="lc-cmd-attn-k">{row.label}</span>
+                  <span className="lc-cmd-attn-v">{row.value}</span>
+                  <span className="lc-cmd-attn-n">{row.n}</span>
+                </button>
+              ))}
+            </div>
           </div>
         ) : null}
         {programs.length > 0 ? (
