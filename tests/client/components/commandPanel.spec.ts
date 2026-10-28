@@ -185,7 +185,7 @@ describe('CommandPanel — filtering, search, sort', () => {
     assert.equal(ranking.length, 4, 'cat, echo, sleep, ls')
     assert.ok(ranking.some(p => p.startsWith('cat') && p.includes('×2') && p.includes('40%')))
     assert.ok(sessionAttention.some(r => r.includes('Slowest') && r.includes('cat missing.txt')))
-    assert.ok(sessionAttention.some(r => r.includes('Failing') && r.includes('cat')))
+    assert.ok(sessionAttention.some(r => r.includes('Failed') && r.includes('cat')))
     assert.ok(sessionAttention.some(r => r.includes('Background')))
     await typeSearch(m.container, 'cat')
     assert.equal(rowTexts(m.container).length, 3)
