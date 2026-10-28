@@ -32,6 +32,11 @@
 - Iterate with the narrowest run first:
   `pnpm exec vitest run tests/<area>/<name>.spec.ts -t "<case name>"` (regex, e.g. `"a|b"`).
 
+## Anti-pattern
+- Prevent over-engineering
+- Prevent memory leaking risks, dangling references, and unbounded growth of retained data, on either server and client side.
+- Always re-consider better efficient performance and lower memory footprint, especially for long-running sessions and complicated scenarios.
+
 ## Verification
 
 - `pnpm run check` must pass before commit: lint, typecheck, and 100% per-file coverage.
