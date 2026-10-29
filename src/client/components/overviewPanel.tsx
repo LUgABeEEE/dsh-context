@@ -247,7 +247,7 @@ export function makeOverviewPanel(
                     <div className="lc-stat lc-ov-kpi">
                       <span className="lc-stat-label">{t('stats.toolCalls')}</span>
                       <span className="lc-stat-value">{fmt(teamTiming?.toolCalls ?? 0)}</span>
-                      <span className="lc-stat-sub">{t('ov.kpi.toolSub', { dur: fmtDuration(teamTiming?.toolsMs ?? 0) })}</span>
+                      <span className="lc-stat-sub">{t('ov.kpi.toolSub', { dur: fmtDuration(teamTiming?.toolBusyMs ?? teamTiming?.toolsMs ?? 0) })}</span>
                     </div>
                     <div className="lc-stat lc-ov-kpi">
                       <span className="lc-stat-label">{t('timing.total')}</span>

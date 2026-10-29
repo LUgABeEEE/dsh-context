@@ -83,6 +83,7 @@ export const DICT_ZH = {
   'timing.text': '模型回复',
   'timing.toolArgs': '工具参数',
   'timing.tools': '工具执行',
+  'timing.toolsBusyTip': '至少有一个工具在运行的时长。各次调用时长合计 {total}：并行调用会重叠，步骤窗口外的运行不计入。',
   'timing.other': '其他开销',
   'timing.callTimes': '{n}次',
   'timing.toolTimes': '{n}次',

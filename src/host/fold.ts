@@ -558,7 +558,8 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
         const start = state.stepStart
         if (start === undefined) return state
         const s = ensure(state.stepRequestSeq !== undefined ? ['timing', 'requests'] : ['timing'])
-        ensureTiming(s).wallMs += durOf(start.time, event.time)
+        const timing = ensureTiming(s)
+        timing.wallMs += durOf(start.time, event.time)
         // ACTIVE time prices the trend chart's duration overlay: the step window minus the clamped union of the
         // step's user waits. The stamp lands on the step's committed request record; a refold that lost the row skips it.
         const waits: { start: number; end: number }[] = [...(state.stepWaits ?? [])]
@@ -587,15 +588,19 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
         painted.sort((a, b) => (a.start - b.start) || (a.end - b.end))
         const flushed: TimingSpan[] = []
         let cursor = start.time
+        let toolBusyMs = 0
         for (const span of painted) {
           const from = Math.max(cursor, span.start)
           if (span.end <= from) continue
           if (from > cursor) flushed.push({ kind: 'other', start: cursor, end: from })
           flushed.push({ kind: span.kind, start: from, end: span.end })
+          if (span.kind === 'tools') toolBusyMs += span.end - from
           cursor = span.end
         }
         if (event.time > cursor) flushed.push({ kind: 'other', start: cursor, end: event.time })
         s.spans = [...state.spans, ...flushed]
+        // A pre-field row stays absent: a partial running total would undercount, so the card keeps its clamped fallback.
+        if (timing.toolBusyMs !== undefined) timing.toolBusyMs += toolBusyMs
         // DELETE the optional fields — assigning `undefined` would break the plain-JSON precondition.
         delete s.stepStart
         delete s.stepSpans

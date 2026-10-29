@@ -450,7 +450,7 @@ function timingFastOk(value: unknown): boolean {
     if (typeof t[k] !== 'number') return false
   }
   // Optional split/block scalars must pass the same non-negative gate the slow path applies.
-  for (const k of ['reasoningMs', 'textMs', 'toolArgMs', 'reasoningBlocks', 'textBlocks', 'toolArgBlocks']) {
+  for (const k of ['reasoningMs', 'textMs', 'toolArgMs', 'reasoningBlocks', 'textBlocks', 'toolArgBlocks', 'toolBusyMs']) {
     const v = t[k]
     if (v !== undefined && (typeof v !== 'number' || !Number.isFinite(v) || v < 0)) return false
   }
@@ -505,6 +505,8 @@ export function timingOf(value: unknown): TimingTotals | null {
   if (toolArgMs !== undefined) totals.toolArgMs = toolArgMs
   const toolArgBlocks = optNumOf(data.toolArgBlocks)
   if (toolArgBlocks !== undefined) totals.toolArgBlocks = toolArgBlocks
+  const toolBusyMs = optNumOf(data.toolBusyMs)
+  if (toolBusyMs !== undefined) totals.toolBusyMs = toolBusyMs
   return totals
 }
 

@@ -106,7 +106,7 @@ export function durOf(from: number, to: number): number {
 /** Created on first use and CLONED on every later `ensure()`: the persisted previous state is never written in place. */
 export function ensureTiming(st: TimelineState): TimingTotals {
   if (st.timing === undefined) {
-    st.timing = { wallMs: 0, ttftMs: 0, genMs: 0, calls: 0, toolsMs: 0, toolCalls: 0, tools: {} }
+    st.timing = { wallMs: 0, ttftMs: 0, genMs: 0, calls: 0, toolsMs: 0, toolBusyMs: 0, toolCalls: 0, tools: {} }
   }
   return st.timing
 }

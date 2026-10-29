@@ -33,7 +33,7 @@ function timeline(over: Record<string, unknown> = {}): Record<string, unknown> {
     archive: [],
     counts: { turns: 3, steps: 5, injects: 1, compactions: 0, prunes: 0 },
     cost: { deepseek: { 'deepseek-v4-flash': { peak: { uncached: 1000, cacheRead: 500, cacheWrite: 0, output: 250 } } } },
-    timing: { wallMs: 90_000, ttftMs: 1_000, genMs: 30_000, calls: 4, toolsMs: 20_000, toolCalls: 7 },
+    timing: { wallMs: 90_000, ttftMs: 1_000, genMs: 30_000, calls: 4, toolsMs: 20_000, toolBusyMs: 15_000, toolCalls: 7 },
     ...over,
   }
 }
@@ -193,7 +193,7 @@ describe('OverviewPanel', () => {
     assert.equal(values[3], '33.33%')
     assert.equal(values[4], '14')
     assert.equal(values[5], '3m0s')
-    assert.ok(text(m.container).includes('tool runs 40.0s'), 'the tool calls cell qualifies with the summed run time')
+    assert.ok(text(m.container).includes('tool runs 30.0s'), 'the tool calls cell qualifies with the busy union the timing card prints')
     assert.ok(text(m.container).includes('8 model calls'), 'the active-time cell qualifies with the family lifetime calls the timing card reads')
     const subs = queryAll(m.container, '.lc-stat-sub').map(el => el.textContent)
     assert.deepEqual(subs.slice(2, 4), ['1 of 2 sessions priced', 'across 1 sessions'])

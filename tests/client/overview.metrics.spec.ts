@@ -92,7 +92,7 @@ describe('timingSumOf', () => {
   test('the additive-optional fields sum their carriers only', () => {
     const split = {
       wallMs: 1, ttftMs: 1, genMs: 10, calls: 1, toolsMs: 0, toolCalls: 0, tools: {},
-      reasoningMs: 4, reasoningBlocks: 2, textMs: 5, textBlocks: 1, speedTokens: 100, speedMs: 2_000,
+      reasoningMs: 4, reasoningBlocks: 2, textMs: 5, textBlocks: 1, toolBusyMs: 3, speedTokens: 100, speedMs: 2_000,
     }
     const preSplit = { wallMs: 1, ttftMs: 1, genMs: 10, calls: 1, toolsMs: 0, toolCalls: 0, tools: {} }
     const rowsOf = (timings: unknown[]): OverviewRow[] =>
@@ -106,11 +106,13 @@ describe('timingSumOf', () => {
       assert.equal(merged?.textMs, 5)
       assert.equal(merged?.textBlocks, 1)
       assert.equal(merged?.toolArgMs, undefined, 'no row carries a tool-arg split')
+      assert.equal(merged?.toolBusyMs, undefined, 'a pre-field member makes the busy union unknowable')
       assert.equal(merged?.speedTokens, 100)
       assert.equal(merged?.speedMs, 2_000)
     }
     const both = timingSumOf(rowsOf([split, { ...split, reasoningMs: 6, speedTokens: 50 }]))
     assert.equal(both?.reasoningMs, 10)
+    assert.equal(both?.toolBusyMs, 6)
     assert.equal(both?.speedTokens, 150)
   })
 })

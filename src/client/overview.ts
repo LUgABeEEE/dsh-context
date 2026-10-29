@@ -594,10 +594,14 @@ export function windowTotalsOf(activity: ContextActivity | null, scope: RangeWin
 /** The rows' team merge of lifetime timing totals. */
 export function timingSumOf(rows: readonly OverviewRow[]): TimingTotals | null {
   let out: TimingTotals | null = null
+  // A pre-field member cannot contribute a busy union, so the merged figure is unknowable and stays absent: the card
+  // falls back to the clamped per-call sums rather than undercounting that member's tools.
+  let toolBusyComplete = true
   for (const row of rows) {
     for (const member of row.family) {
       const t = member?.timing
       if (t === undefined) continue
+      if (t.toolBusyMs === undefined) toolBusyComplete = false
       if (out === null) {
         out = { ...t, tools: { ...t.tools } }
         continue
@@ -614,6 +618,7 @@ export function timingSumOf(rows: readonly OverviewRow[]): TimingTotals | null {
       addOptionalOf(out, t, 'textBlocks')
       addOptionalOf(out, t, 'toolArgMs')
       addOptionalOf(out, t, 'toolArgBlocks')
+      addOptionalOf(out, t, 'toolBusyMs')
       addOptionalOf(out, t, 'speedTokens')
       addOptionalOf(out, t, 'speedMs')
       for (const name of Object.keys(t.tools)) {
@@ -624,6 +629,7 @@ export function timingSumOf(rows: readonly OverviewRow[]): TimingTotals | null {
       }
     }
   }
+  if (out !== null && !toolBusyComplete) delete out.toolBusyMs
   return out
 }
 
@@ -635,7 +641,7 @@ function addOptionalOf(target: TimingTotals, source: TimingTotals, key: Optional
 }
 
 type OptionalTimingKey = 'reasoningMs' | 'reasoningBlocks' | 'textMs' | 'textBlocks'
-  | 'toolArgMs' | 'toolArgBlocks' | 'speedTokens' | 'speedMs'
+  | 'toolArgMs' | 'toolArgBlocks' | 'toolBusyMs' | 'speedTokens' | 'speedMs'
 
 export interface TokenPartTotal {
   key: string

@@ -31,7 +31,7 @@ describe('timing — step lifecycle', () => {
   test('a step prices its TTFT, generation, and wall time, then disarms the slot', () => {
     const { state } = driveTimeline(step(1, 10_000, 2_000, { tokenMs: 600 }))
     assert.deepEqual(state.timing, {
-      wallMs: 6_000, ttftMs: 600, genMs: 1_400, calls: 1, toolsMs: 0, toolCalls: 0, tools: {},
+      wallMs: 6_000, ttftMs: 600, genMs: 1_400, calls: 1, toolsMs: 0, toolBusyMs: 0, toolCalls: 0, tools: {},
     })
     assert.equal(state.stepStart, undefined, 'step/end consumes the pending slot')
   })
@@ -92,11 +92,43 @@ describe('timing — tool call durations', () => {
       toolResult(5, { callId: 'c2', content: text('ok'), time: 9_000 }),
     ])
     assert.deepEqual(drive.states[2].timing, {
-      wallMs: 0, ttftMs: 0, genMs: 0, calls: 0, toolsMs: 3_500, toolCalls: 1,
+      wallMs: 0, ttftMs: 0, genMs: 0, calls: 0, toolsMs: 3_500, toolBusyMs: 0, toolCalls: 1,
       tools: { bash: { calls: 1, ms: 3_500 } },
     })
     assert.equal(drive.state.timing?.toolsMs, 3_500 + 4_000)
     assert.deepEqual(drive.state.timing?.tools, { bash: { calls: 2, ms: 7_500 } })
+  })
+
+  test('the busy union accumulates per step: parallel runs price once, and a cross-step run prices no wall', () => {
+    const { state } = driveTimeline([
+      stepStart(1, { time: 0 }),
+      assistantMessage(2, { time: 1_000 }),
+      { type: 'tool/call', seq: 3, time: 2_000, data: { callId: 'c1', name: 'bash', arguments: '{}' } },
+      { type: 'tool/call', seq: 4, time: 2_000, data: { callId: 'c2', name: 'web_fetch', arguments: '{}' } },
+      toolResult(5, { callId: 'c1', content: text('ok'), time: 8_000 }),
+      toolResult(6, { callId: 'c2', content: text('ok'), time: 8_000 }),
+      stepEnd(7, { time: 9_000 }),
+      // A result whose call landed outside any open step still prices the per-call sum, never a painted window.
+      { type: 'tool/call', seq: 8, time: 10_000, data: { callId: 'c3', name: 'bash', arguments: '{}' } },
+      toolResult(9, { callId: 'c3', content: text('ok'), time: 12_000 }),
+    ])
+    assert.equal(state.timing?.toolsMs, 6_000 + 6_000 + 2_000, 'the per-call sum keeps the harness parity')
+    assert.equal(state.timing?.toolBusyMs, 6_000, 'the parallel runs share one painted window')
+    assert.ok((state.timing?.toolBusyMs ?? 0) <= (state.timing?.wallMs ?? 0))
+  })
+
+  test('a pre-field timing row folded forward leaves the busy union absent, never partial', () => {
+    const def = timelineDef()
+    const legacy = {
+      ...def.init(),
+      timing: { wallMs: 0, ttftMs: 0, genMs: 0, calls: 0, toolsMs: 0, toolCalls: 0, tools: {} },
+      stepStart: { time: 0 },
+    }
+    let state = def.apply(legacy, { type: 'tool/call', seq: 1, time: 1_000, data: { callId: 'c1', name: 'bash', arguments: '{}' } })
+    state = def.apply(state, toolResult(2, { callId: 'c1', content: text('ok'), time: 2_000 }))
+    state = def.apply(state, stepEnd(3, { time: 3_000 }))
+    assert.equal(Object.hasOwn(state.timing ?? {}, 'toolBusyMs'), false, 'a partial total would undercount the card')
+    assert.equal(state.timing?.toolsMs, 1_000)
   })
 
   test('an unpaired or out-of-order result prices nothing, with no `timing` slot at all', () => {

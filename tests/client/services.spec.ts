@@ -446,6 +446,8 @@ describe('timelineOf — timing integration', () => {
   test('a well-formed timing passes through by reference (fast path)', () => {
     const wire = { ...base, timing }
     assert.equal(timelineOf(wire), wire)
+    const busy = { ...timing, toolBusyMs: 25_000 }
+    assert.equal(timelineOf({ ...base, timing: busy })?.timing, busy, 'the optional busy union tolerates the fast path')
   })
 
   test('a non-record timing is omitted entirely (no null-valued key)', () => {
@@ -471,6 +473,9 @@ describe('timelineOf — timing integration', () => {
     assert.deepEqual(sanitized({ ...timing, reasoningMs: 'x' }), timing)
     assert.deepEqual(sanitized({ ...timing, textMs: Number.NaN }), timing)
     assert.deepEqual(sanitized({ ...timing, toolArgMs: -1 }), timing)
+    for (const bad of ['x', -1, Number.NaN]) assert.deepEqual(sanitized({ ...timing, toolBusyMs: bad }), timing)
+    assert.deepEqual(sanitized({ ...timing, toolBusyMs: 25_000 }), { ...timing, toolBusyMs: 25_000 })
+    assert.deepEqual(sanitized({ ...timing, wallMs: 'x', toolBusyMs: 25_000 }), { ...timing, wallMs: 0, toolBusyMs: 25_000 })
   })
 })
 

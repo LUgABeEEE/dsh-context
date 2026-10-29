@@ -27,6 +27,11 @@ function rowOf(container: HTMLElement, i: number): { pct: string; label: string;
   }
 }
 
+/** The rows must partition the wall: their printed shares sum to 100.0% (within the 0.1% print granularity). */
+function pctSum(container: HTMLElement): number {
+  return queryAll(container, '.lc-sl-pct').reduce((sum, n) => sum + Number.parseFloat(n.textContent ?? '0'), 0)
+}
+
 describe('StatsTiming', () => {
   test('absent, all-zero, or zero-with-live-call timings render the empty state', async () => {
     for (const timing of [
@@ -49,9 +54,10 @@ describe('StatsTiming', () => {
     assert.equal(query(m.container, '.lc-donut-center span').textContent, 'Active Time')
     assert.deepEqual(rowOf(m.container, 0), { pct: '16.7%', label: 'TTFT', count: '1m40s · 10 calls', dim: false })
     assert.deepEqual(rowOf(m.container, 1), { pct: '23.3%', label: 'LLM Gen', count: '2m20s', dim: false })
-    // The tools row keeps the true 5m sum even though the ring clamps it.
+    // A row folded before `toolBusyMs` existed falls back to the per-call sum, attributed within its window.
     assert.deepEqual(rowOf(m.container, 2), { pct: '50.0%', label: 'Tool runs', count: '5m0s · 25 runs', dim: false })
     assert.deepEqual(rowOf(m.container, 3), { pct: '10.0%', label: 'Overhead', count: '1m0s', dim: false })
+    assert.ok(Math.abs(pctSum(m.container) - 100) < 0.05, `rows must sum to 100%: ${pctSum(m.container)}`)
     assert.equal(queryAll(m.container, '.lc-donut circle').length, 4)
     assert.equal(queryAll(m.container, '.lc-sl-row').length, 4)
     await m.unmount()
@@ -61,14 +67,18 @@ describe('StatsTiming', () => {
     await zh.unmount()
   })
 
-  test('parallel tool overlap: the count keeps the true sum, the share caps at 100%', async () => {
-    const timing: TimingTotals = { wallMs: 100_000, ttftMs: 25_000, genMs: 35_000, calls: 2, toolsMs: 200_000, toolCalls: 9, tools: { bash: { calls: 9, ms: 200_000 } } }
+  test('parallel tool overlap: the busy union prices once; the per-call sum never inflates the share', async () => {
+    const timing: TimingTotals = {
+      wallMs: 100_000, ttftMs: 25_000, genMs: 35_000, calls: 2,
+      toolsMs: 200_000, toolBusyMs: 40_000, toolCalls: 9, tools: { bash: { calls: 9, ms: 200_000 } },
+    }
     const m = await mount(h(StatsTiming, { timing }))
-    assert.deepEqual(rowOf(m.container, 2), { pct: '100.0%', label: 'Tool runs', count: '3m20s · 9 runs', dim: false })
-    assert.equal(queryAll(m.container, '.lc-donut circle').length, 3)
-    assert.equal(queryAll(m.container, '.lc-sl-row').length, 4)
+    assert.deepEqual(rowOf(m.container, 2), { pct: '40.0%', label: 'Tool runs', count: '40.0s · 9 runs', dim: false })
     assert.deepEqual(rowOf(m.container, 3), { pct: '0.0%', label: 'Overhead', count: '—', dim: true })
+    assert.ok(Math.abs(pctSum(m.container) - 100) < 0.05, `rows must sum to 100%: ${pctSum(m.container)}`)
     const rows = queryAll(m.container, '.lc-sl-row')
+    const tip = rows[2].getAttribute('title') ?? ''
+    assert.ok(tip.includes('3m20s'), `the overlapped per-call sum stays discoverable: ${tip}`)
     await hover(rows[2])
     assert.ok(rows[2].className.includes('lc-sl-row-on'))
     assert.ok(query(m.container, '.lc-donut').className.includes('lc-donut-dim'))
@@ -76,6 +86,16 @@ describe('StatsTiming', () => {
     await hover(rows[3])
     assert.ok(rows[3].className.includes('lc-sl-row-on'))
     assert.ok(!query(m.container, '.lc-donut').className.includes('lc-donut-dim'))
+    await m.unmount()
+  })
+
+  test('a pre-field row clamps its tool window and keeps the per-call sum in the tip', async () => {
+    const timing: TimingTotals = { wallMs: 100_000, ttftMs: 25_000, genMs: 35_000, calls: 2, toolsMs: 200_000, toolCalls: 9, tools: { bash: { calls: 9, ms: 200_000 } } }
+    const m = await mount(h(StatsTiming, { timing }))
+    assert.deepEqual(rowOf(m.container, 2), { pct: '40.0%', label: 'Tool runs', count: '40.0s · 9 runs', dim: false })
+    assert.deepEqual(rowOf(m.container, 3), { pct: '0.0%', label: 'Overhead', count: '—', dim: true })
+    const tip = queryAll(m.container, '.lc-sl-row')[2].getAttribute('title') ?? ''
+    assert.ok(tip.includes('3m20s'), `the clamped fallback keeps the per-call sum discoverable: ${tip}`)
     await m.unmount()
   })
 
@@ -152,13 +172,17 @@ describe('StatsTiming — the generation split', () => {
     }
   })
 
-  test('a hostile bucket total exceeding the generation window clamps the ring, rows stay true', async () => {
-    // The buckets claim 500s inside a 140s window: the ring caps them, every row keeps its own figure.
+  test('a hostile bucket total exceeding the generation window clamps only the shares, never the measured figures', async () => {
+    // The buckets claim 500s inside a 140s window: the shares cap into the wall, while each model row keeps its
+    // measured duration — and a real bucket with no attributed window stays visible at 0.0% instead of vanishing.
     const timing: TimingTotals = { ...SPLIT, reasoningMs: 400_000, textMs: 100_000, toolArgMs: 0 }
     const m = await mount(h(StatsTiming, { timing }))
-    assert.deepEqual(rowOf(m.container, 1), { pct: '66.7%', label: 'Reasoning', count: '6m40s', dim: false })
-    assert.deepEqual(rowOf(m.container, 2), { pct: '16.7%', label: 'Answers', count: '1m40s', dim: false })
-    assert.equal(rowOf(m.container, 3).label, 'Tool runs')
+    assert.deepEqual(rowOf(m.container, 0), { pct: '16.7%', label: 'TTFT', count: '1m40s · 10 calls', dim: false })
+    assert.deepEqual(rowOf(m.container, 1), { pct: '23.3%', label: 'Reasoning', count: '6m40s', dim: false })
+    assert.deepEqual(rowOf(m.container, 2), { pct: '0.0%', label: 'Answers', count: '1m40s', dim: false })
+    assert.deepEqual(rowOf(m.container, 3), { pct: '50.0%', label: 'Tool runs', count: '5m0s · 25 runs', dim: false })
+    assert.deepEqual(rowOf(m.container, 4), { pct: '10.0%', label: 'Overhead', count: '1m0s', dim: false })
+    assert.ok(Math.abs(pctSum(m.container) - 100) < 0.05, `rows must sum to 100%: ${pctSum(m.container)}`)
     await m.unmount()
   })
 })

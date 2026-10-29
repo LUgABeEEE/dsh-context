@@ -173,6 +173,7 @@ describe('spans — the step flush', () => {
       { kind: 'other', start: 3_500, end: 4_000 },
     ])
     assert.equal(state.timing?.toolsMs, 1_000 + 1_000 + 1_500)
+    assert.equal(state.timing?.toolBusyMs, 1_500, 'the busy union, never the per-call sum')
     assert.equal(state.timing?.toolCalls, 3)
   })
 
@@ -188,6 +189,8 @@ describe('spans — the step flush', () => {
       { kind: 'other', start: 0, end: 3_000 },
       { kind: 'tools', start: 3_000, end: 4_000 },
     ])
+    assert.equal(past.state.timing?.toolBusyMs, 1_000, 'clip the busy union into the step window')
+    assert.equal(past.state.timing?.toolsMs, 2_000, 'the per-call sum still prices the whole run')
     // …and a run stamped wholly BEFORE the step's window paints nothing.
     const before = driveTimeline([
       stepStart(1, { time: 3_000 }),
@@ -196,6 +199,7 @@ describe('spans — the step flush', () => {
       stepEnd(4, { time: 4_000 }),
     ])
     assert.deepEqual(before.state.spans, [{ kind: 'other', start: 3_000, end: 4_000 }])
+    assert.equal(before.state.timing?.toolBusyMs, 0, 'no painted window, no busy time')
   })
 
   test('a zero-width step flushes nothing but bumps the detail revision', () => {

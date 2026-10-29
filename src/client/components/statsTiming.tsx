@@ -12,9 +12,16 @@ interface Slice {
   key: string
   color: string
   label: string
-  /** TRUE duration (the row prints this; the ring clamps it into its window). */
+  /** The window the row prints; its share still comes from the clamped ring window beside it. */
   ms: number
   times?: string
+}
+
+/** One slice with its share of the wall: `ring` can be smaller than `slice.ms` only for a hostile over-long log. */
+interface TimingSlice {
+  slice: Slice
+  ring: number
+  tip?: string
 }
 
 const COLOR = TIMING_COLOR
@@ -82,8 +89,13 @@ export function makeStatsTiming(kit: ViewKit, Donut: (props: DonutProps) => Reac
         modelRings.push(take)
         used += take
       }
-      const toolRing = Math.max(0, Math.min(timing.toolsMs, wall - ttftRing - genRing))
-      const other = Math.max(0, wall - ttftRing - genRing - toolRing)
+      // The tool slice is the per-step busy UNION: parallel runs share one window, so the per-call sum would double
+      // wall time. A row folded before that field existed falls back to the sum, clamped below.
+      const toolMs = timing.toolBusyMs ?? timing.toolsMs
+      const toolRing = Math.max(0, Math.min(toolMs, wall - ttftRing - genRing))
+      // Every share comes from these attributed windows, so no row can exceed the wall; the unallocated generation
+      // gap, if any, lands in the residue.
+      const other = Math.max(0, wall - used - toolRing)
       const share = (ms: number): number => (wall > 0 ? ms / wall : 0)
       // The secondary line leads with the duration and qualifies it with the tally; a zero-duration slice keeps the tally.
       const countOf = (ms: number, times?: string): string => {
@@ -91,37 +103,40 @@ export function makeStatsTiming(kit: ViewKit, Donut: (props: DonutProps) => Reac
         if (times === undefined) return dur
         return ms > 0 ? `${dur} · ${times}` : times
       }
-      const modelSegments = modelSlices.map((slice, index) => ({
-        key: slice.key, color: slice.color, value: share(modelRings[index]),
-      }))
+      // The tools row prints its wall-attributed window (never the per-call sum); the sum survives in the tip whenever
+      // the two differ, including the legacy clamped fallback.
+      const toolDisplayMs = wall > 0 ? toolRing : toolMs
       const toolSlice: Slice = {
         key: 'tools',
         color: COLOR.tools,
         label: t('timing.tools'),
-        ms: timing.toolsMs,
+        ms: toolDisplayMs,
         times: t('timing.toolTimes', { n: fmt(timing.toolCalls) }),
       }
+      const toolTip = timing.toolsMs > toolDisplayMs
+        ? t('timing.toolsBusyTip', { total: fmtDuration(timing.toolsMs) })
+        : undefined
       const otherSlice: Slice = { key: 'other', color: COLOR.other, label: t('timing.other'), ms: other }
-      segments = [
-        ...modelSegments,
-        { key: 'tools', color: COLOR.tools, value: share(toolRing) },
-        { key: 'other', color: COLOR.other, value: share(other) },
+      const slices: TimingSlice[] = [
+        ...modelSlices.map((slice, index) => ({ slice, ring: modelRings[index] })),
+        { slice: toolSlice, ring: toolRing, ...(toolTip !== undefined ? { tip: toolTip } : {}) },
+        { slice: otherSlice, ring: other },
       ]
-      const toRow = (slice: Slice): SliceRow => ({
+      segments = slices.map(({ slice, ring }) => ({ key: slice.key, color: slice.color, value: share(ring) }))
+      const toRow = ({ slice, ring, tip }: TimingSlice): SliceRow => ({
         key: slice.key,
         color: slice.color,
         label: slice.label,
+        // A model row keeps its MEASURED duration; its share still comes from the attributed ring window, so a hostile
+        // over-long bucket prints honestly as a 0.0% row instead of vanishing or rewriting its own figure.
         dim: slice.ms === 0,
-        pct: fmtShare(slice.ms, wall),
+        pct: fmtShare(ring, wall),
         count: countOf(slice.ms, slice.times),
+        ...(tip !== undefined ? { tip } : {}),
       })
       // A slice that never happened stays hidden (a "0.0%" row carrying the tally reads as "many calls, no time").
       // The residual overhead row is the exception: its transient zero clamp would resize the card at every step boundary.
-      const sliceRows = [
-        ...modelSlices.map(toRow),
-        toRow(toolSlice),
-        toRow(otherSlice),
-      ]
+      const sliceRows = slices.map(toRow)
       rows = sliceRows.some(row => !row.dim)
         ? sliceRows.filter(row => !row.dim || row.key === otherSlice.key)
         : []

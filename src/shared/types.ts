@@ -469,8 +469,9 @@ export interface ToolTimingTotals {
 }
 
 /** Whole-session totals over the COMPLETE log: `wallMs` whole steps, `ttftMs` step-start → decode-start, `genMs`
- * decode-start → assistant-message, `toolsMs` per-call. The decode window opens at the first OBSERVABLE instant, so
- * marker-tiled windows never double-count; speed* keep the first-token anchor; `calls`/`toolCalls` count messages/pairs. */
+ * decode-start → assistant-message, `toolsMs` per-call and `toolBusyMs` per-step union. The decode window opens at the
+ * first OBSERVABLE instant, so marker-tiled windows never double-count; speed* keep the first-token anchor;
+ * `calls`/`toolCalls` count messages/pairs. */
 export interface TimingTotals {
   wallMs: number
   ttftMs: number
@@ -485,6 +486,9 @@ export interface TimingTotals {
   speedMs?: number
   calls: number
   toolsMs: number
+  /** Wall time with at least one tool running: parallel runs overlap once, and runs outside every step window price
+   * nothing. Absent on rows folded before the field existed (the card attributes the clamped per-call sum instead). */
+  toolBusyMs?: number
   toolCalls: number
   /** Per-tool-name tallies behind the timing card's ranking (bounded). */
   tools: Record<string, ToolTimingTotals>

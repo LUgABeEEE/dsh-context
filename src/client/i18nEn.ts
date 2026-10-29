@@ -86,6 +86,7 @@ export const DICT_EN = {
   'timing.text': 'Answers',
   'timing.toolArgs': 'Tool args',
   'timing.tools': 'Tool runs',
+  'timing.toolsBusyTip': 'Busy time with at least one tool running. Per-call durations sum to {total}: parallel runs overlap, and runs outside a step window are not attributed.',
   'timing.other': 'Overhead',
   'timing.callTimes': '{n} calls',
   'timing.toolTimes': '{n} runs',
