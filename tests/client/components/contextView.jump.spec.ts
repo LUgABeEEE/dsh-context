@@ -208,10 +208,11 @@ describe('ContextView — the stats board\'s pill jumps', () => {
 })
 
 describe('ContextView — the stats board\'s lower-lane jumps', () => {
-  /** Four programs on the bash tool: python3 twice (top), git, node and npm once. */
+  /** Four programs on the bash tool: python3 tops by RECORDS (two of the three invocations share one), then git, node, npm. */
   function commandTimeline(): ReturnType<typeof timeline> {
     return timeline({
       commands: [
+        { seq: 10, time: T0, tool: 'bash', cmd: 'python3 a.py && python3 b.py', start: T0, end: T0 + 100, status: 'completed', err: false },
         { seq: 11, time: T0, tool: 'bash', cmd: 'python3 build.py', start: T0, end: T0 + 100, status: 'completed', err: false },
         { seq: 12, time: T0 + 1000, tool: 'bash', cmd: 'git status --short', start: T0 + 1000, end: T0 + 1100, status: 'completed', err: false },
         { seq: 13, time: T0 + 2000, tool: 'bash', cmd: 'node --version', start: T0 + 2000, end: T0 + 2100, status: 'completed', err: false },
@@ -229,11 +230,12 @@ describe('ContextView — the stats board\'s lower-lane jumps', () => {
       assert.ok(queryAll(m.container, '.lc-ledger-in-body2 .lc-ledger-chip').some(el => text(el).startsWith('npm')), 'the whole program tally reaches the stats board')
       const chip = queryAll(m.container, '.lc-ledger-in-body2 .lc-ledger-chip').find(el => text(el).startsWith('python3'))
       assert.ok(chip !== undefined)
+      assert.equal(text(chip), 'python32', 'the lane counts RECORDS, not the three invocations')
       await click(chip)
       await flush()
       const card = query(m.container, '.lc-cmd-card')
       assert.equal(query<HTMLInputElement>(card, 'input.lc-fa-search').value, 'python3', 'the seeded lens shows in the box')
-      assert.equal(queryAll(card, '.lc-cmd-row').length, 1, 'the lens narrows to the program')
+      assert.equal(queryAll(card, '.lc-cmd-row').length, 2, 'the lens narrows to the program, matching the chip')
       assert.equal(scroller.scrollTop, 600, 'the command card scrolled to the scrollport top')
       await m.unmount()
     } finally {

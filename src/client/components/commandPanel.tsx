@@ -152,9 +152,9 @@ export function makeCommandPanel(kit: ViewKit): ComponentType<CommandPanelProps>
     const views = useMemo(() => viewsOf(commands, props.workspace), [commands, props.workspace])
     // The chip counts describe the search + picked-program scope (what picking a chip would show); the chip then
     // narrows the list. The rail's ranking and attention facts stay session-wide, so no list control moves them.
-    const searched = useMemo(() => views.filter(view => matchesQuery(view.rec, q, view.program)), [views, q])
+    const searched = useMemo(() => views.filter(view => matchesQuery(view.rec, q, view.programs)), [views, q])
     const picked = useMemo(
-      () => (programPick === null ? searched : searched.filter(view => view.program === programPick)),
+      () => (programPick === null ? searched : searched.filter(view => view.programs.includes(programPick))),
       [searched, programPick],
     )
     const scoped = useMemo(() => picked.filter(view => matchesFilter(view.rec, filter)), [picked, filter])
@@ -279,7 +279,6 @@ export function makeCommandPanel(kit: ViewKit): ComponentType<CommandPanelProps>
       const bg = attention.background
       pushAttention({ key: 'background', label: t('cmds.rail.bgRuns'), value: '', n: '×' + fmt(bg) }, { filter: 'background' })
     }
-    const totalPrograms = Math.max(1, programs.reduce((sum, p) => sum + p.n, 0))
     const topProgramN = Math.max(1, ...programs.map(p => p.n))
     const pq = progQuery.trim().toLowerCase()
     // A query keeps its input visible below the threshold: a trimmed or refreshed log can drop the ranking under
@@ -368,7 +367,6 @@ export function makeCommandPanel(kit: ViewKit): ComponentType<CommandPanelProps>
             <div className="lc-cmd-progs-list" role="group" aria-label={t('cmds.rail.top', { n: programs.length })}>
               {shownPrograms.map((p) => {
                 const color = nameColorOf(p.name)
-                const share = Math.round(p.n / totalPrograms * 100)
                 return (
                   <button
                     key={p.name}
@@ -381,7 +379,9 @@ export function makeCommandPanel(kit: ViewKit): ComponentType<CommandPanelProps>
                     <i className="lc-cmd-prog-dot" style={{ background: color }} />
                     <span className="lc-cmd-prog-name">{p.name}</span>
                     <span className="lc-cmd-prog-n">{'×' + fmt(p.n)}</span>
-                    <span className="lc-cmd-prog-share">{share}%</span>
+                    <span className="lc-cmd-prog-runs">
+                      {t(p.runs === 1 ? 'cmds.rail.programRun' : 'cmds.rail.programRuns', { n: fmt(p.runs) })}
+                    </span>
                     {/* The underline bar is relative to the heaviest program (the Skills list's idiom). */}
                     <i className="lc-cmd-prog-bar" style={{ width: `calc(${Math.round(p.n / topProgramN * 100)}% - ${Math.round(p.n / topProgramN * 12)}px)`, background: color }} />
                   </button>

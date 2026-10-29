@@ -137,6 +137,21 @@ describe('CommandPanel — filtering, search, sort', () => {
     await m.unmount()
   })
 
+  test('a picked program filters by its own identity, not by the box text', async () => {
+    const commands: Command[] = [
+      cmd(1, { cmd: 'git status && my\\ cmd --x' }),
+      cmd(2, { cmd: 'git diff' }),
+    ]
+    const m = await mount(h(Panel, { commands }))
+    const row = queryAll(m.container, '.lc-cmd-prog').find(b => text(b).startsWith('my cmd'))
+    assert.ok(row !== undefined)
+    assert.ok(text(row).includes('· 1 run'), 'one record contains the program')
+    await click(row)
+    assert.equal(rowTexts(m.container).length, 1, 'the label matches the filtered rows')
+    assert.ok(rowTexts(m.container)[0].includes('my\\ cmd'), 'the text lens does not hide an escaped name')
+    await m.unmount()
+  })
+
   test('the chips filter the list and toggle back off', async () => {
     const m = await mount(h(Panel, { commands: richCommands() }))
     const chip = (label: string) => {
@@ -183,7 +198,10 @@ describe('CommandPanel — filtering, search, sort', () => {
     const sessionAttention = attention()
     const box = () => query<HTMLInputElement>(m.container, 'input.lc-fa-search').value
     assert.equal(ranking.length, 4, 'cat, echo, sleep, ls')
-    assert.ok(ranking.some(p => p.startsWith('cat') && p.includes('×2') && p.includes('40%')))
+    assert.ok(ranking.some(p => p.startsWith('cat') && p.includes('×3') && p.includes('3 runs')))
+    const echoProgram = queryAll(m.container, '.lc-cmd-prog').find(p => text(p).startsWith('echo'))
+    assert.ok(echoProgram !== undefined)
+    assert.equal(text(query(echoProgram, '.lc-cmd-prog-runs')), '· 1 run')
     assert.ok(sessionAttention.some(r => r.includes('Slowest') && r.includes('cat missing.txt')))
     assert.ok(sessionAttention.some(r => r.includes('Failed') && r.includes('cat')))
     assert.ok(sessionAttention.some(r => r.includes('Background')))
@@ -198,12 +216,13 @@ describe('CommandPanel — filtering, search, sort', () => {
       return hit
     }
     await click(progBtn('cat'))
-    assert.equal(rowTexts(m.container).length, 2, 'the two cat-headed runs, not the echo chain')
+    assert.equal(rowTexts(m.container).length, 3, 'the cat-headed runs and the echo chain all contain cat')
     assert.ok(rowTexts(m.container).some(r => r.includes('cat README.md')))
+    assert.ok(rowTexts(m.container).some(r => r.includes('cat package.json')))
     assert.ok(rowTexts(m.container).some(r => r.includes('cat missing.txt')))
     assert.deepEqual(progs(), ranking, 'the pick does not move the ranking')
     assert.deepEqual(attention(), sessionAttention, 'the pick does not move the attention facts')
-    assert.deepEqual(chipCounts(m.container), ['2', '1', '1', '0'], 'the chips count the picked scope')
+    assert.deepEqual(chipCounts(m.container), ['3', '1', '1', '0'], 'the chips count the picked scope')
     assert.ok(progBtn('cat').className.includes('lc-cmd-prog-on'))
     assert.equal(progBtn('cat').getAttribute('aria-pressed'), 'true')
     assert.ok((progBtn('cat').getAttribute('title') ?? '').includes('Clear'))
@@ -231,27 +250,27 @@ describe('CommandPanel — filtering, search, sort', () => {
     assert.equal(queryAll(m.container, '.lc-cmd-prog-on').length, 0)
     assert.deepEqual(chipCounts(m.container), ['5', '1', '1', '1'])
     await click(progBtn('cat'))
-    assert.equal(rowTexts(m.container).length, 2)
+    assert.equal(rowTexts(m.container).length, 3)
     const failedChip = queryAll(m.container, '.lc-cmd-chips .lc-gran-btn').find(b => text(b).startsWith('Failed'))
     assert.ok(failedChip !== undefined)
     await click(failedChip)
     assert.equal(rowTexts(m.container).length, 1, 'the failed cat run')
     assert.equal(progBtn('cat').getAttribute('aria-pressed'), 'true', 'the chip keeps the pick')
     assert.equal(box(), 'cat', 'the chip does not disturb the box')
-    assert.deepEqual(chipCounts(m.container), ['2', '1', '1', '0'])
+    assert.deepEqual(chipCounts(m.container), ['3', '1', '1', '0'])
     const allChip = queryAll(m.container, '.lc-cmd-chips .lc-gran-btn').find(b => text(b).startsWith('All'))
     assert.ok(allChip !== undefined)
     await click(allChip)
-    assert.equal(rowTexts(m.container).length, 2)
+    assert.equal(rowTexts(m.container).length, 3)
     await m.update(h(Panel, {
       commands: [
-        cmd(2, { cmd: 'echo hi && cat package.json' }),
+        cmd(2, { cmd: 'echo hi' }),
         cmd(4, { cmd: 'sleep 20', status: 'running', background: true, end: undefined }),
         cmd(5, { cmd: 'ls -la' }),
       ],
     }))
     assert.equal(queryAll(m.container, '.lc-cmd-prog-on').length, 0, 'the vanished pick clears')
-    assert.equal(rowTexts(m.container).length, 1, 'the command text still matches the search')
+    assert.equal(rowTexts(m.container).length, 0, 'no retained command matches the old search')
     assert.equal(queryAll(m.container, '.lc-cmd-prog').length, 3, 'the new retained log re-ranks')
     await m.unmount()
 

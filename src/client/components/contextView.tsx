@@ -546,7 +546,7 @@ export function makeContextView(
     const commandBoard = useMemo(() => {
       if (fullCommandList.length === 0) return { runs: 0, top: [] as [string, number][] }
       const stats = data?.commandStats ?? tallyOfCommands(fullCommandList)
-      const top = programsOf(viewsOf(fullCommandList, workspace)).map(p => [p.name, p.n] as [string, number])
+      const top = programsOf(viewsOf(fullCommandList, workspace)).map(p => [p.name, p.runs] as [string, number])
       return { runs: stats.runs, top }
     }, [fullCommandList, data, workspace])
     // The lane's chips only offer the jump when the card can serve it (the collection exists on this host).
