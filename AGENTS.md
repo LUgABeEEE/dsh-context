@@ -39,10 +39,8 @@ A DeepSeek Harness plugin for context insight, actions, and management.
   
   ### Comments
   
-  - Default to none.
-  - Write one only for a critical, non-obvious decision, constraint, or invariant the code cannot express. If you cannot name it, delete it.
-  - Never narrate what the code does, restate names or types, or explain your own change.
-  - While editing, delete or shrink comments that are obvious, redundant, or stale.
+  - No comments in source code or tests.
+  - Machine-readable directives required by tooling (`v8 ignore`, triple-slash references) are exempt; keep them minimal and drop their explanatory prose.
   
   ### Tests
   
@@ -96,7 +94,7 @@ Complete ALL of these before ANY commit:
 
 - The plugin pane is the shell's center column, not the viewport — its width follows the sidebar's collapse and drags. Drive responsive layout with container queries (the harness's own idiom), not viewport media queries.
 - Fold, never crush: under width pressure, wrap rows or fold grid columns instead of truncating into unreadability. No horizontal scrollbars, no overlapping content, and every field stays reachable on the narrowest pane.
-- Mind container-query side effects: size containment changes containing-block behavior, so fullscreen overlays portal to `document.body`. Point-of-use specifics live in the CSS comments next to the rules they guard.
+- Mind container-query side effects: size containment changes containing-block behavior, so fullscreen overlays portal to `document.body`. Point-of-use specifics must be encoded in the rule's own declarations or pinned by tests, not in comments.
 - Verify layout changes visually before shipping: a spread of widths from desktop down to phone (~390px), in both locales (English labels are the truncation stress case), on a long session, including the `/context` modal.
 
 ## Build & run
