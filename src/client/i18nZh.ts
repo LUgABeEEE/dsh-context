@@ -61,6 +61,8 @@ export const DICT_ZH = {
   'stats.laneEmpty': '暂无',
   'stats.toolJump': '在上下文浏览器中展开该工具的运行结果',
   'stats.commandJump': '在命令执行中筛选该程序',
+  'stats.commandsMoreTip': '滚动到命令执行卡片',
+  'stats.toolsMoreTip': '在上下文浏览器中展开全部工具结果',
   'stats.billedTip': 'Token 用量为计费合计：未缓存输入、缓存读取、缓存写入与输出。',
   'stats.subCostTip': '全部层级的子 Agent 会话各自累计费用（同口径估算）的合计，不含当前 Agent 自身。',
   'stats.costPriceHead': '每百万 Token 价格：',

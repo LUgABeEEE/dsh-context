@@ -243,6 +243,48 @@ describe('ContextView — the stats board\'s lower-lane jumps', () => {
     }
   })
 
+  test('the folded "+N" tails jump: tools open every result, commands reveal the card without a lens', async () => {
+    const data = timeline({
+      commands: ['git status', 'pnpm test', 'node x.js', 'grep -n x src', 'tail -5 log']
+        .map((cmd, i) => ({ seq: 20 + i, time: T0 + i, tool: 'bash', cmd, start: T0, end: T0 + 10, status: 'completed' as const, err: false })),
+      nodes: ['read', 'edit', 'bash', 'grep', 'write']
+        .map((tool, i) => ({ seq: 30 + i, cat: 'tool' as const, tokens: 5, tool })),
+    })
+    const scroller = overflowingScroller(1400)
+    const rect = (w: number, top: number): DOMRect => ({ width: w, height: 0, top, left: 0, right: 0, bottom: 0, x: 0, y: 0, toJSON: () => ({}) } as DOMRect)
+    // Layout for the fit AND for each reveal: a 260px lane folds to two chips plus the "+N" tail.
+    const gBCR = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      if (this.hasAttribute('data-conversation-scroll')) return rect(0, 100)
+      if (this.classList.contains('lc-ledger-chips')) return rect(260, 0)
+      if (this.classList.contains('lc-ledger-chip')) return rect(this.classList.contains('lc-ledger-chip-more') ? 40 : 100, 0)
+      const top = this.classList.contains('lc-col-browser') ? 450 : this.classList.contains('lc-cmd-card') ? 700 : 0
+      return rect(0, top - scroller.scrollTop)
+    })
+    try {
+      const View = makeView(new TestClientCtx())
+      const m = await mountInScroller(h(View, { sessionId: 'sv-morejump', useProjection: projectionsFor(data) }), scroller)
+      const toolMore = query(m.container, '.lc-ledger-out-chips .lc-ledger-chip-more')
+      const cmdMore = query(m.container, '.lc-ledger-in-body2 .lc-ledger-chip-more')
+      assert.equal(toolMore.getAttribute('title'), DICT_EN['stats.toolsMoreTip'])
+      assert.equal(toolMore.getAttribute('role'), 'button')
+      assert.equal(cmdMore.getAttribute('title'), DICT_EN['stats.commandsMoreTip'])
+      await click(toolMore)
+      await flush()
+      const open = queryAll(m.container, '.lc-br-cat-row.lc-br-cat-open')
+      assert.equal(open.length, 1)
+      assert.ok(text(open[0]).includes(DICT_EN['cat.tool']), 'every tool result opens')
+      assert.equal(scroller.scrollTop, 350, 'the browser card scrolled into view')
+      await click(cmdMore)
+      await flush()
+      const card = query(m.container, '.lc-cmd-card')
+      assert.equal(query<HTMLInputElement>(card, 'input.lc-fa-search').value, '', 'no program lens is seeded')
+      assert.equal(scroller.scrollTop, 600, 'the command card scrolled into view')
+      await m.unmount()
+    } finally {
+      gBCR.mockRestore()
+    }
+  })
+
   test('a tool chip opens the bucket its results are filed in, seeding the name only in Tool Results', async () => {
     const base = richTimeline()
     // The fold files a `skill` load's result under the skill bucket (src/host/fold.ts's tool-result arm).

@@ -64,6 +64,8 @@ export const DICT_EN = {
   'stats.laneEmpty': 'None yet',
   'stats.toolJump': "Open this tool's results in the Context Browser",
   'stats.commandJump': 'Filter this program in Command Executions',
+  'stats.commandsMoreTip': 'Scroll to the Command Executions card',
+  'stats.toolsMoreTip': 'Open every tool result in the Context Browser',
   'stats.billedTip': 'Token usage is the billed total: uncached input, cache read, cache write, and output.',
   'stats.subCostTip': 'Summed estimates of every descendant subagent session’s own cumulative cost — all levels of the subtree (same basis); the current agent is not included.',
   'stats.costPriceHead': 'Per-1M-token rates:',

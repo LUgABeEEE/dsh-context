@@ -283,12 +283,14 @@ export function makeContextView(
     // The command lane's one-shot pick: the program the Command Executions card opens its rail lens with.
     const [commandFocus, setCommandFocus] = useState<string | null>(null)
     const clearCommandFocus = useCallback(() => { setCommandFocus(null) }, [])
+    // The command lane's folded tail only reveals the card: no program lens, just the card itself.
+    const [commandReveal, setCommandReveal] = useState(0)
 
     // Below-the-fold cards: keep the first commit to the cards the reader sees, then mount the event/file row in an
     // idle slice once it nears the conversation viewport; the two skeleton cards reserve the row height.
     const [belowFoldRef, belowFoldMounted] = useLazyMount(filterFocus !== null || eventsFocus > 0)
     // The command panel sits below the event/file row as its own full-width lazy block.
-    const [cmdsRef, cmdsMounted] = useLazyMount(commandFocus !== null)
+    const [cmdsRef, cmdsMounted] = useLazyMount(commandFocus !== null || commandReveal > 0)
     // The browser card is visible but heavy (assembled rows for the current step): paint its card-shaped skeleton in
     // the first commit, then fill it in the next idle slice so the open's commit stays small.
     const [browserRef, browserMounted] = useLazyMount()
@@ -358,6 +360,14 @@ export function makeContextView(
       setCatFocus(inSkill ? { cat: 'skill' } : { cat: 'tool', query: tool })
       revealCard(rootRef.current, '.lc-col-browser')
     }, [data])
+    // The tool lane's folded tail: open the whole Tool Results bucket, so the reader lands on every result.
+    const onToolMore = useCallback((): void => {
+      setCatFocus({ cat: 'tool' })
+      revealCard(rootRef.current, '.lc-col-browser')
+    }, [])
+    const onCommandMore = useCallback((): void => {
+      setCommandReveal(n => n + 1)
+    }, [])
     const focusMember = useFleetMemberFocus(typeof sessionId === 'string' ? sessionId : undefined)
 
     // Restore the saved position in a layout effect, so the chat's bottom-anchored position never flashes in first.
@@ -441,6 +451,11 @@ export function makeContextView(
       if (commandFocus === null || !cmdsMounted) return
       revealCard(rootRef.current, '.lc-cmd-card')
     }, [commandFocus, cmdsMounted])
+
+    useEffect(() => {
+      if (commandReveal === 0 || !cmdsMounted) return
+      revealCard(rootRef.current, '.lc-cmd-card')
+    }, [commandReveal, cmdsMounted])
 
     // Chat → Context jump, leg 1: pick up the relay request once per mount, then subscribe — the sidebar landing
     // keeps this view mounted.
@@ -876,7 +891,9 @@ export function makeContextView(
               cost={data.cost} locale={activeLocale} sessionId={typeof sessionId === 'string' ? sessionId : undefined}
               onJump={onJump} onTeamClick={hasFamilyView ? onTeamClick : undefined}
               onToolPick={onToolPick}
+              onToolMore={onToolMore}
               onCommandPick={hasCommands ? setCommandFocus : undefined}
+              onCommandMore={hasCommands ? onCommandMore : undefined}
               onEventsClick={onEventsClick} />
             <PluginInfo />
           </div>
