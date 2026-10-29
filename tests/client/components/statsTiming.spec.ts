@@ -31,11 +31,10 @@ function pctSum(container: HTMLElement): number {
 }
 
 describe('StatsTiming', () => {
-  test('absent, all-zero, or zero-with-live-call timings render the empty state', async () => {
+  test('absent timing renders the empty state; a zero-with-live-call timing renders every slot dimmed', async () => {
     for (const timing of [
       null,
       { wallMs: 0, ttftMs: 0, genMs: 0, calls: 0, toolsMs: 0, toolCalls: 0, tools: {} },
-      { wallMs: 0, ttftMs: 0, genMs: 0, calls: 2, toolsMs: 0, toolCalls: 0, tools: {} },
     ] as const) {
       const m = await mount(h(StatsTiming, { timing }))
       assert.ok(text(m.container).includes('No timing data yet'))
@@ -43,6 +42,11 @@ describe('StatsTiming', () => {
       assert.equal(queryAll(m.container, '.lc-donut').length, 0)
       await m.unmount()
     }
+    const zero = await mount(h(StatsTiming, { timing: { wallMs: 0, ttftMs: 0, genMs: 0, calls: 2, toolsMs: 0, toolCalls: 0, tools: {} } }))
+    assert.deepEqual(queryAll(zero.container, '.lc-sl-label').map(n => n.textContent), ['TTFT', 'LLM Gen', 'Tool runs', 'Overhead'])
+    assert.ok(queryAll(zero.container, '.lc-sl-row').every(r => r.className.includes('lc-sl-row-dim')))
+    assert.equal(query(zero.container, '.lc-donut-center b').textContent, '—')
+    await zero.unmount()
   })
 
   test('the donut center shows the wall total; rows lead with shares', async () => {
@@ -96,26 +100,45 @@ describe('StatsTiming', () => {
     await m.unmount()
   })
 
-  test('a hostile no-wall timing keeps the painted slices plus the residual slot', async () => {
+  test('a hostile no-wall timing keeps the measured slices beside the idle slots', async () => {
     const timing: TimingTotals = { wallMs: 0, ttftMs: 5_000, genMs: 0, calls: 3, toolsMs: 0, toolCalls: 1, tools: { bash: { calls: 1, ms: 0 } } }
     const m = await mount(h(StatsTiming, { timing }))
     assert.equal(query(m.container, '.lc-donut-center b').textContent, '—')
-    assert.equal(queryAll(m.container, '.lc-sl-row').length, 2)
+    assert.equal(queryAll(m.container, '.lc-sl-row').length, 4)
     assert.deepEqual(rowOf(m.container, 0), { pct: '—', label: 'TTFT', count: '5.0s · 3 calls', dim: false })
-    assert.deepEqual(rowOf(m.container, 1), { pct: '—', label: 'Overhead', count: '—', dim: true })
+    assert.deepEqual(rowOf(m.container, 1), { pct: '—', label: 'LLM Gen', count: '—', dim: true })
+    assert.deepEqual(rowOf(m.container, 2), { pct: '—', label: 'Tool runs', count: '1 runs', dim: true })
+    assert.deepEqual(rowOf(m.container, 3), { pct: '—', label: 'Overhead', count: '—', dim: true })
     await m.unmount()
   })
 
-  test('a zero slice is omitted, but the residual overhead row keeps its slot', async () => {
+  test('zero slices stay visible and dimmed; every category keeps its slot', async () => {
     const timing: TimingTotals = {
       wallMs: 532, ttftMs: 480, genMs: 52, reasoningMs: 0, textMs: 52, toolArgMs: 0,
       calls: 1, toolsMs: 0, toolCalls: 0, tools: {},
     }
     const m = await mount(h(StatsTiming, { timing }))
     const labels = queryAll(m.container, '.lc-sl-label').map(n => n.textContent)
-    assert.deepEqual(labels, ['TTFT', 'Answers', 'Overhead'], 'zero buckets and zero tools are gone; overhead stays')
+    assert.deepEqual(labels, ['TTFT', 'Reasoning', 'Answers', 'Tool args', 'Tool runs', 'Overhead'])
     assert.equal(queryAll(m.container, '.lc-donut-seg').length, 2)
-    assert.deepEqual(rowOf(m.container, 2), { pct: '0.0%', label: 'Overhead', count: '—', dim: true })
+    assert.deepEqual(rowOf(m.container, 1), { pct: '0.0%', label: 'Reasoning', count: '—', dim: true })
+    assert.deepEqual(rowOf(m.container, 2), { pct: '9.8%', label: 'Answers', count: '52ms', dim: false })
+    assert.deepEqual(rowOf(m.container, 4), { pct: '0.0%', label: 'Tool runs', count: '0 runs', dim: true })
+    assert.deepEqual(rowOf(m.container, 5), { pct: '0.0%', label: 'Overhead', count: '—', dim: true })
+    await m.unmount()
+  })
+
+  test('idle time prices out of the shares and the center, and the overhead slot absorbs the remainder', async () => {
+    const timing: TimingTotals = { ...TIMING, idleMs: 200_000 }
+    const m = await mount(h(StatsTiming, { timing }))
+    assert.equal(query(m.container, '.lc-donut-center b').textContent, '6m40s')
+    assert.deepEqual(rowOf(m.container, 0), { pct: '25.0%', label: 'TTFT', count: '1m40s · 10 calls', dim: false })
+    assert.deepEqual(rowOf(m.container, 1), { pct: '35.0%', label: 'LLM Gen', count: '2m20s', dim: false })
+    assert.deepEqual(rowOf(m.container, 2), { pct: '40.0%', label: 'Tool runs', count: '2m40s · 25 runs', dim: false })
+    assert.deepEqual(rowOf(m.container, 3), { pct: '0.0%', label: 'Overhead', count: '—', dim: true })
+    assert.ok(Math.abs(pctSum(m.container) - 100) < 0.05, `rows must sum to 100%: ${pctSum(m.container)}`)
+    const tip = queryAll(m.container, '.lc-sl-row')[2].getAttribute('title') ?? ''
+    assert.ok(tip.includes('5m0s'), `the carved per-call sum stays discoverable: ${tip}`)
     await m.unmount()
   })
 })
@@ -169,8 +192,9 @@ describe('StatsTiming — the generation split', () => {
     assert.deepEqual(rowOf(m.container, 0), { pct: '16.7%', label: 'TTFT', count: '1m40s · 10 calls', dim: false })
     assert.deepEqual(rowOf(m.container, 1), { pct: '23.3%', label: 'Reasoning', count: '6m40s', dim: false })
     assert.deepEqual(rowOf(m.container, 2), { pct: '0.0%', label: 'Answers', count: '1m40s', dim: false })
-    assert.deepEqual(rowOf(m.container, 3), { pct: '50.0%', label: 'Tool runs', count: '5m0s · 25 runs', dim: false })
-    assert.deepEqual(rowOf(m.container, 4), { pct: '10.0%', label: 'Overhead', count: '1m0s', dim: false })
+    assert.deepEqual(rowOf(m.container, 3), { pct: '0.0%', label: 'Tool args', count: '—', dim: true })
+    assert.deepEqual(rowOf(m.container, 4), { pct: '50.0%', label: 'Tool runs', count: '5m0s · 25 runs', dim: false })
+    assert.deepEqual(rowOf(m.container, 5), { pct: '10.0%', label: 'Overhead', count: '1m0s', dim: false })
     assert.ok(Math.abs(pctSum(m.container) - 100) < 0.05, `rows must sum to 100%: ${pctSum(m.container)}`)
     await m.unmount()
   })

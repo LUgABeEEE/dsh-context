@@ -1,6 +1,7 @@
 import { useState, type ReactElement } from 'react'
 import type { TimingSpan, TimingTotals } from '../../shared/types'
 import type { ViewKit } from '../viewkit'
+import { activeMsOf } from '../services'
 import { IconClock } from '../primitives'
 
 import { SliceList } from './sliceList'
@@ -42,6 +43,7 @@ export function makeStatsTiming(kit: ViewKit, Donut: (props: DonutProps) => Reac
     const [hoverKey, setHoverKey] = useState<string | null>(null)
     const timing = props.timing
     const wall = timing !== null && Number.isFinite(timing.wallMs) && timing.wallMs > 0 ? timing.wallMs : 0
+    const active = timing !== null ? activeMsOf(timing) : 0
     const tps = timing !== null
       && typeof timing.speedMs === 'number' && Number.isFinite(timing.speedMs) && timing.speedMs > 0
       && typeof timing.speedTokens === 'number' && Number.isFinite(timing.speedTokens) && timing.speedTokens >= 0
@@ -69,8 +71,8 @@ export function makeStatsTiming(kit: ViewKit, Donut: (props: DonutProps) => Reac
       } else {
         modelSlices.push({ key: 'gen', color: COLOR.reasoning, label: t('timing.gen'), ms: timing.genMs })
       }
-      const ttftRing = Math.min(timing.ttftMs, wall)
-      const genRing = Math.max(0, Math.min(timing.genMs, wall - ttftRing))
+      const ttftRing = Math.min(timing.ttftMs, active)
+      const genRing = Math.max(0, Math.min(timing.genMs, active - ttftRing))
       const modelRings: number[] = [ttftRing]
       let used = ttftRing
       const genEnd = ttftRing + genRing
@@ -80,9 +82,9 @@ export function makeStatsTiming(kit: ViewKit, Donut: (props: DonutProps) => Reac
         used += take
       }
       const toolMs = timing.toolBusyMs ?? timing.toolsMs
-      const toolRing = Math.max(0, Math.min(toolMs, wall - ttftRing - genRing))
-      const other = Math.max(0, wall - used - toolRing)
-      const share = (ms: number): number => (wall > 0 ? ms / wall : 0)
+      const toolRing = Math.max(0, Math.min(toolMs, active - ttftRing - genRing))
+      const other = Math.max(0, active - used - toolRing)
+      const share = (ms: number): number => (active > 0 ? ms / active : 0)
       const countOf = (ms: number, times?: string): string => {
         const dur = fmtDuration(ms)
         if (times === undefined) return dur
@@ -106,19 +108,15 @@ export function makeStatsTiming(kit: ViewKit, Donut: (props: DonutProps) => Reac
         { slice: otherSlice, ring: other },
       ]
       segments = slices.map(({ slice, ring }) => ({ key: slice.key, color: slice.color, value: share(ring) }))
-      const toRow = ({ slice, ring, tip }: TimingSlice): SliceRow => ({
+      rows = slices.map(({ slice, ring, tip }) => ({
         key: slice.key,
         color: slice.color,
         label: slice.label,
         dim: slice.ms === 0,
-        pct: fmtShare(ring, wall),
+        pct: fmtShare(ring, active),
         count: countOf(slice.ms, slice.times),
         ...(tip !== undefined ? { tip } : {}),
-      })
-      const sliceRows = slices.map(toRow)
-      rows = sliceRows.some(row => !row.dim)
-        ? sliceRows.filter(row => !row.dim || row.key === otherSlice.key)
-        : []
+      }))
     }
     return (
       <div className="lc-card lc-col-donut flex-1 min-w-[min(360px,100%)]">
@@ -141,7 +139,7 @@ export function makeStatsTiming(kit: ViewKit, Donut: (props: DonutProps) => Reac
                 <Donut
                   segments={segments}
                   size={96}
-                  centerTop={wall > 0 ? fmtDuration(wall) : '—'}
+                  centerTop={wall > 0 ? fmtDuration(active) : '—'}
                   centerSub={t('timing.total')}
                   hoverKey={hoverKey}
                   onHoverKey={setHoverKey}

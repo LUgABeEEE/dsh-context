@@ -9,7 +9,7 @@ import {
   UNGROUPED_KEY, workspacesSnapshotOf,
   type DayRange, type OverviewCoverage, type OverviewRange, type OverviewRow, type OverviewSort, type SkillSort,
 } from '../overview'
-import { openPluginSettings, openSessionVia, type ClientCtx } from '../services'
+import { openPluginSettings, openSessionVia, activeMsOf, type ClientCtx } from '../services'
 import { readSkillCatalog } from '../skills'
 import type { ContextSettings } from '../settings'
 import type { SkillInfo } from '../../shared/types'
@@ -221,7 +221,7 @@ export function makeOverviewPanel(
                     </div>
                     <div className="lc-stat lc-ov-kpi">
                       <span className="lc-stat-label">{t('timing.total')}</span>
-                      <span className="lc-stat-value">{fmtDuration(teamTiming?.wallMs ?? 0)}</span>
+                      <span className="lc-stat-value">{fmtDuration(activeMsOf(teamTiming))}</span>
                       <span className="lc-stat-sub">{t('ov.kpi.wallSub', { n: fmt(teamTiming?.calls ?? 0) })}</span>
                     </div>
                   </div>

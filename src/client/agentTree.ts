@@ -2,7 +2,7 @@ import type { PartsPart } from './categories'
 import type { ContextBreakdown, ContextPressure, ContextTimeline, SessionCostUsage, TokenUsage } from '../shared/types'
 import { mergeCostUsage } from './cost'
 import { headlineOf, occupancyPercent, type Headline } from './headline'
-import { asRecord, contextBreakdownOf, contextPressureOf, numOf, timelineOf, tokenUsageOf } from './services'
+import { asRecord, contextBreakdownOf, contextPressureOf, numOf, timelineOf, tokenUsageOf, activeMsOf } from './services'
 
 export interface SessionsFaceLike {
   list?: {
@@ -191,7 +191,7 @@ export function agentSelfOf(
     billed: billedOf(usage),
     requests: timeline.counts?.steps ?? timeline.requests.length,
     costUsage: timeline.cost ?? null,
-    durationMs: timeline.timing != null && timeline.timing.wallMs > 0 ? timeline.timing.wallMs : null,
+    durationMs: timeline.timing != null && timeline.timing.wallMs > 0 ? activeMsOf(timeline.timing) : null,
   }
 }
 
