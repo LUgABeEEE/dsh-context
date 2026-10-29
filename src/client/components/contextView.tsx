@@ -542,11 +542,12 @@ export function makeContextView(
     )
     const fullCommandList = commandLog.records
     const workspace = typeof ctx.get === 'function' ? workspaceOf(ctx, typeof sessionId === 'string' ? sessionId : undefined) : undefined
-    // The stats card's command lane: the whole-log run tally (host-served, else the full list's own) and its programs.
+    // The stats card's command lane: the whole-log run tally (host-served, else the full list's own) and its programs,
+    // ranked by invocation count like the command card's own rail.
     const commandBoard = useMemo(() => {
       if (fullCommandList.length === 0) return { runs: 0, top: [] as [string, number][] }
       const stats = data?.commandStats ?? tallyOfCommands(fullCommandList)
-      const top = programsOf(viewsOf(fullCommandList, workspace)).map(p => [p.name, p.runs] as [string, number])
+      const top = programsOf(viewsOf(fullCommandList, workspace)).map(p => [p.name, p.n] as [string, number])
       return { runs: stats.runs, top }
     }, [fullCommandList, data, workspace])
     // The lane's chips only offer the jump when the card can serve it (the collection exists on this host).

@@ -208,7 +208,7 @@ describe('ContextView — the stats board\'s pill jumps', () => {
 })
 
 describe('ContextView — the stats board\'s lower-lane jumps', () => {
-  /** Four programs on the bash tool: python3 tops by RECORDS (two of the three invocations share one), then git, node, npm. */
+  /** Four programs on the bash tool: python3 tops by INVOCATIONS (three, two of them in one record), then git, node, npm. */
   function commandTimeline(): ReturnType<typeof timeline> {
     return timeline({
       commands: [
@@ -230,12 +230,12 @@ describe('ContextView — the stats board\'s lower-lane jumps', () => {
       assert.ok(queryAll(m.container, '.lc-ledger-in-body2 .lc-ledger-chip').some(el => text(el).startsWith('npm')), 'the whole program tally reaches the stats board')
       const chip = queryAll(m.container, '.lc-ledger-in-body2 .lc-ledger-chip').find(el => text(el).startsWith('python3'))
       assert.ok(chip !== undefined)
-      assert.equal(text(chip), 'python32', 'the lane counts RECORDS, not the three invocations')
+      assert.equal(text(chip), 'python33', 'the lane counts INVOCATIONS, including repeats within one record')
       await click(chip)
       await flush()
       const card = query(m.container, '.lc-cmd-card')
       assert.equal(query<HTMLInputElement>(card, 'input.lc-fa-search').value, 'python3', 'the seeded lens shows in the box')
-      assert.equal(queryAll(card, '.lc-cmd-row').length, 2, 'the lens narrows to the program, matching the chip')
+      assert.equal(queryAll(card, '.lc-cmd-row').length, 2, 'the lens narrows to the records running the program')
       assert.equal(scroller.scrollTop, 600, 'the command card scrolled to the scrollport top')
       await m.unmount()
     } finally {
