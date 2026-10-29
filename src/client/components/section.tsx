@@ -3,9 +3,7 @@ import type { ReactElement, ReactNode } from 'react'
 export function Section(props: {
   label: string
   labelClass?: string
-  /** Fold the head's trailing group onto a second line under width pressure; the call-name head must stay one-line. */
   foldHead?: boolean
-  /** A one-line qualified note after the label; it ellipsizes before the head's trailing group is pushed out. */
   headNote?: string
   count?: number
   actions?: ReactNode

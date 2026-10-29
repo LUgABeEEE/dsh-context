@@ -1,7 +1,3 @@
-/** The Fleet detail route (`/api/dsh-context/fleet`): per-session agent color no projection carries — the delegation prompt, the
- * `subagent/descriptor` composition, and attested inter-agent traffic. Display-only and total; a `full: true` body lifts the excerpt
- * caps for the task card's opened sections. */
-
 import type { Context } from '@deepseek-ai/cordis'
 import type { FleetDescriptor, FleetDetail, FleetMemberInfo, FleetMessage } from '../shared/types'
 import { type ColdReadGate, makeColdReadGate } from './coldRead'
@@ -9,16 +5,12 @@ import { type ConnectionHostFace, registerPostRoute } from './connection'
 
 export const FLEET_ROUTE = '/api/dsh-context/fleet'
 
-/** The fold's default read serves inspector excerpts, not transcripts. */
 const MESSAGES_MAX = 80
 const MESSAGE_TEXT_MAX = 400
 const PROMPT_TEXT_MAX = 1600
 const REPLY_TEXT_MAX = 300
-/** A full read lifts the excerpt caps for one opened message; the hostile-payload bounds stay. 120 messages cover every
- * excerpt row (80), so an opened message is always present while older history stays bounded. */
 const FULL_MESSAGES_MAX = 120
 const FULL_MESSAGE_TEXT_MAX = 24_000
-/** The full read's only bound: DSH never truncates these, but a corrupted log must not flood the client. */
 const FULL_TEXT_MAX = 100_000
 
 function fullOf(body: unknown): boolean {
@@ -53,7 +45,6 @@ function textOfContent(content: unknown): string {
   return out
 }
 
-/** A teammate briefing opens with an injected `<system-reminder>` framing block; the excerpt drops it. */
 const REMINDER_PREFIX = /^\s*<system-reminder>[\s\S]*?<\/system-reminder>\s*/
 
 function clip(text: string, max: number): { text: string; cut: boolean } {
@@ -71,19 +62,14 @@ function descriptorOf(data: Record<string, unknown>): FleetDescriptor | null {
   return out
 }
 
-/** The mailbox generation stamps each delivery with a transport preamble; the excerpt drops it. */
 const MAILBOX_PREFIX = /^Team message \S+ from ([^:]{1,64}):\s*/
-/** Relay deliveries open with a sender-framing block; the excerpt drops it — the UI labels the parties itself. */
 const RELAY_PREFIX = /^(?:Agent \S+ sent a message: |Team message from ([^:\n]{1,64}):\s*)/
 
-/** The runtime's settlement notice vocabulary (`createSettlementMessage` in dsh's subagent package). */
 const CLOSING_HEAD = 'Its closing message:'
 const NO_CLOSING = 'It left no closing message.'
 const CLOSING_OMITTED = 'It sent you a message just before finishing, so its closing message is omitted.'
 const STRUCTURED_HEAD = 'Structured result: '
 
-/** End index of the leading JSON value, or 0 when the text starts with something else. String-aware, so a brace inside
- * a quoted value cannot close the scan; an unterminated value spans the whole remainder. */
 function jsonSpan(text: string): number {
   const first = text[0]
   if (first !== '{' && first !== '[') return 0
@@ -116,7 +102,6 @@ interface SettledFields {
   clipped: boolean
 }
 
-/** Split the runtime notice into its summary, closing report, structured result, and trailing diagnostic. */
 function settledFields(summary: string, text: string, max: number): SettledFields {
   let clipped = false
   const put = (value: string): string | undefined => {
@@ -133,8 +118,6 @@ function settledFields(summary: string, text: string, max: number): SettledField
   else if (before.startsWith(CLOSING_HEAD)) before = before.slice(CLOSING_HEAD.length).trim()
   let structured: string | undefined
   let diagnostic: string | undefined
-  // A diagnostic with no structured payload arrives as a bare block after the closing text; with no marker it cannot be
-  // told apart from the report, so it stays there.
   if (structuredAt >= 0) {
     const raw = rest.slice(structuredAt + STRUCTURED_HEAD.length).trim()
     const end = jsonSpan(raw)
@@ -176,8 +159,6 @@ function messageOf(seq: number, time: number, data: Record<string, unknown>, max
   } else if (kind === 'subagent-settled') {
     const summary = typeof source?.summary === 'string' ? source.summary.trim() : ''
     const content = textOfContent(data.content).trim()
-    // The notice's content starts with its summary and carries the closing report behind it. A hostile content that
-    // does not open with the attested summary contributes nothing but the summary itself.
     const text = summary !== '' && !content.startsWith(summary)
       ? summary
       : content !== '' ? content : summary
@@ -201,7 +182,6 @@ function messageOf(seq: number, time: number, data: Record<string, unknown>, max
   return message
 }
 
-/** A human-typed prompt or a delegation's initial delivery (kind `'user'` or unattributed), not injected context. */
 function isPlainPrompt(source: Record<string, unknown> | null): boolean {
   if (source === null) return true
   return source.kind === 'user'
@@ -233,9 +213,6 @@ function capsOf(full: boolean): FleetCaps {
     : { promptMax: PROMPT_TEXT_MAX, replyMax: REPLY_TEXT_MAX, messageMax: MESSAGE_TEXT_MAX, listMax: MESSAGES_MAX }
 }
 
-/** The incremental fleet fold: every served excerpt is a function of this state, so a later read extends it instead of
- * rescanning the whole log. Messages stay sorted newest-seq-first and bounded to `listMax`; `total` keeps the whole-log
- * count. */
 export class FleetFold {
   private descriptor: FleetDescriptor | undefined
   private initialPrompt: string | undefined
@@ -329,15 +306,12 @@ export class FleetFold {
   }
 }
 
-/** Total over hostile input: a malformed entry drops alone. `full` lifts the prompt/reply/message excerpt caps for one
- * opened card, keeping the hostile-payload bounds. */
 export function fleetDetailOfEvents(events: readonly unknown[], full = false): FleetDetail {
   const fold = new FleetFold(capsOf(full))
   fold.apply(events)
   return fold.serve()
 }
 
-/** One session's incremental excerpt fold; the durable revision or the live log's append-only prefix decides reuse. */
 interface FoldEntry {
   live: boolean
   persistence?: unknown
@@ -347,7 +321,6 @@ interface FoldEntry {
   fold: FleetFold
 }
 
-/** Eight excerpts are a few hundred KB; a Fleet tab scans a family at a time. */
 const FOLD_CACHE_MAX = 8
 
 function revisionOf(observation: unknown): string | undefined {
@@ -362,8 +335,6 @@ interface ObservationLike {
   [Symbol.dispose]?: unknown
 }
 
-/** A live log is append-only: reuse its fold only while the stored prefix still matches. Stored logs key on the durable
- * revision, so a changed log can never extend the old fold. */
 function reusable(
   entry: FoldEntry,
   live: boolean,
@@ -400,7 +371,6 @@ function foldOf(
   }
   const fold = new FleetFold(capsOf(false))
   fold.apply(events)
-  // A stored read with no durable revision has no comparable token: its log can have grown, so never cache it.
   if (!live && revision === undefined) return fold
   cache.set(sessionId, {
     live,
@@ -417,7 +387,6 @@ function foldOf(
   return fold
 }
 
-/** Serve whenever `connection` is composed; `sessionQuery` is re-read per request so a late-arriving service arms. */
 export function watchFleetChannel(ctx: Context, coldReads: ColdReadGate = makeColdReadGate()): void {
   const cache = new Map<string, FoldEntry>()
   ctx.inject(['connection'], (c) => {

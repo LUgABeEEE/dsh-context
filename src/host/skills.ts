@@ -1,7 +1,3 @@
-/** The skill-catalog route: metadata behind the Insights page's skill card (description, origin bucket, on-disk path), joined by name
- * onto the activity ledger's tallies. The harness's `skills/list` Remote strips the origin, so the plugin reads the host-side registry
- * through the session — web compositions mount discovery on agent presets, so the global registry alone lists nothing. */
-
 import { asRecord } from './record'
 import type { Context } from '@deepseek-ai/cordis'
 import type { SkillInfo } from '../shared/types'
@@ -9,7 +5,6 @@ import { type ConnectionHostFace, registerPostRoute } from './connection'
 
 export const SKILLS_ROUTE = '/api/dsh-context/skills'
 
-/** The render bound on served entries; a generated-skill-per-directory registry could otherwise answer megabytes. */
 const MAX_SKILLS = 500
 
 interface SkillRegistryLike {
@@ -31,12 +26,9 @@ async function disposeOf(resource: unknown): Promise<void> {
     const syncDispose = (resource as { [Symbol.dispose]?: unknown })[Symbol.dispose]
     if (typeof syncDispose === 'function') (syncDispose as () => void).call(resource)
   } catch {
-    // A hostile disposer costs nothing — the read already landed.
   }
 }
 
-/** Narrow one registry summary to the wire entry: the name is the join key and must prove itself, or the entry drops whole while valid
- * siblings keep serving. */
 function skillInfoOf(value: unknown): SkillInfo | null {
   const record = asRecord(value)
   if (record === null || typeof record.name !== 'string' || record.name === '') return null
@@ -48,8 +40,6 @@ function skillInfoOf(value: unknown): SkillInfo | null {
   }
 }
 
-/** The session's catalog view: its workspace and recorded preset off a sessionQuery observation; an unknown session leaves the request's
- * cwd as the only selector. */
 async function sessionViewOf(ctx: Context, sessionId: string | undefined): Promise<{ cwd?: string; agentPreset?: string }> {
   if (sessionId === undefined) return {}
   const query = asRecord(ctx.get('sessionQuery'))
@@ -73,8 +63,6 @@ async function sessionViewOf(ctx: Context, sessionId: string | undefined): Promi
   }
 }
 
-/** The registry and scope one catalog read resolves to (mirroring the harness's skill-catalog.ts): a live agent's preset-scoped registry
- * wins, a cold session's preset rides a standing scope lease, and neither leaves it unscoped. */
 async function resolveRegistry(
   ctx: Context,
   sessionId: string | undefined,
@@ -107,14 +95,12 @@ async function resolveRegistry(
       lease = await (presets.acquireScope as (id?: string) => Promise<unknown>).call(presets, agentPreset)
       scope = asRecord(lease)?.key
     } catch {
-      // An unknown or unusable preset falls back to the global layer.
       lease = undefined
     }
   }
   return { registry: registry as unknown as SkillRegistryLike, scope, lease }
 }
 
-/** Serve whenever `connection` composes; every harness face is re-proved per request, so a missing subsystem answers null. */
 export function watchSkillCatalog(ctx: Context): void {
   ctx.inject(['connection'], (c) => {
 
@@ -143,7 +129,6 @@ export function watchSkillCatalog(ctx: Context): void {
           value = { skills }
         }
       } catch {
-        // Any failure serves null — the card renders its tallies unenriched.
       } finally {
         await disposeOf(lease)
       }

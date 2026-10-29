@@ -1,5 +1,3 @@
-/** The English dictionary; `DictKey` pins it to the zh key set at compile time. */
-
 import type { DictKey } from './i18nZh'
 
 export const DICT_EN = {

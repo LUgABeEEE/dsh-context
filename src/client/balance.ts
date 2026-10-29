@@ -1,5 +1,3 @@
-/** The Insights header balance: the remembered figure paints at once, one background route read corrects it. */
-
 import type { PlatformBalance, PlatformBalanceEntry } from '../shared/types'
 import { BALANCE_ROUTE } from './apiRoutes'
 import { asRecord } from './services'
@@ -29,7 +27,6 @@ export function platformBalanceOf(value: unknown): PlatformBalance | null {
   const infos = Array.isArray(data.balances) ? data.balances : []
   const balances: PlatformBalanceEntry[] = []
   for (const info of infos) {
-    // A hostile entry may throw on access; it drops whole, the entries that prove their shape serve on.
     try {
       const entry = asRecord(info)
       if (entry === null) continue
@@ -49,7 +46,6 @@ export function platformBalanceOf(value: unknown): PlatformBalance | null {
     : null
 }
 
-/** Falls back to the account's first entry: a figure in another currency beats none. */
 export function balanceEntryOf(
   balance: PlatformBalance | null | undefined,
   currency: 'cny' | 'usd',
@@ -71,7 +67,6 @@ function storageFn(): StorageFace | null {
     const found: unknown = globalThis.localStorage
     storage = found === null || found === undefined ? null : found as StorageFace
   } catch {
-    // Some privacy modes throw on mere storage access.
     storage = null
   }
   return storage
@@ -90,7 +85,6 @@ function rememberBalance(value: PlatformBalance | null): void {
   try {
     storageFn()?.setItem(STORAGE_KEY, JSON.stringify(value))
   } catch {
-    // A refused write costs only the next open's head start; the live figure renders.
   }
 }
 
@@ -109,7 +103,6 @@ async function readRoute(): Promise<PlatformBalance | null> {
   }
 }
 
-/** One route read per open, `onRefresh` on landing; `refreshing` is assigned before awaiting so opens join it. */
 export function readPlatformBalance(onRefresh: (value: PlatformBalance) => void): PlatformBalance | null {
   landingCallbacks.add(onRefresh)
   if (refreshing === null) {
@@ -134,7 +127,6 @@ export function resetPlatformBalance(): void {
   try {
     storageFn()?.removeItem(STORAGE_KEY)
   } catch {
-    /* nothing to drop */
   }
   storage = undefined
 }

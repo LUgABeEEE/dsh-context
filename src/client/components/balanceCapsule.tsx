@@ -1,5 +1,3 @@
-/** Balance pill: paints the remembered figure while client/balance.ts revalidates, and renders nothing until a figure exists. */
-
 import { useState, type ReactElement } from 'react'
 import { balanceEntryOf, readPlatformBalance } from '../balance'
 import type { PlatformBalance } from '../../shared/types'

@@ -1,4 +1,3 @@
-/** The Chinese (Simplified) dictionary — the key-set source of truth every other locale must carry in full. */
 export const DICT_ZH = {
   'tab.context': '上下文',
   'tab.fleet': '编队',
@@ -166,7 +165,6 @@ export const DICT_ZH = {
   'brief.replyTip': '这一步模型返回的内容（文本回复或工具调用）；此步发起的调用，其结果会出现在下一柱的「输入」行',
   'events.title': '上下文事件',
   'events.empty': '暂无上下文事件（压缩、注入、模型切换会出现在这里）',
-  // Locale-neutral position stamps, matching the browser rows' own `browser.stepAt`.
   'events.at': 'T{t} S{s}',
   'events.range': 'T{t} S{a}→{b}',
   'events.rangeTo': 'T{a} S{as} → T{b} S{bs}',
@@ -578,7 +576,6 @@ export const DICT_ZH = {
   'block.content': '内容',
   'block.result': '结果',
   'block.summary': '摘要',
-  // The zh measure word never inflects, so the singular/plural forms are identical.
   'block.line': '{n} 行',
   'block.lines': '{n} 行',
   'call.ok': '正常',

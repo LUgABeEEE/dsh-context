@@ -101,7 +101,6 @@ describe('CommandPanel — command coloring', () => {
       ],
     }))
     const rows = queryAll(plain.container, '.lc-cmd-cmd')
-    // The pwsh grammar loads lazily: the preview text reads the same colored or plain.
     assert.ok(text(rows[0]!).endsWith('Get-ChildItem -Recurse'), 'the pwsh preview renders')
     assert.equal(queryAll(rows[1]!, 'span').length, 0)
     assert.equal(text(rows[1]!), long)
@@ -336,7 +335,7 @@ describe('CommandPanel — the result block', () => {
 
   test('the result block reads the target node through fetchContent; a cached re-expand skips the loading note', async () => {
     const m = await mount(h(Panel, { commands: richCommands(), fetchContent: async (seq) => (seq === 52 ? RESULT : null), }))
-    await click(queryAll(m.container, '.lc-cmd-row')[2]) // the failed vitest run → resultSeq 52
+    await click(queryAll(m.container, '.lc-cmd-row')[2])
     const cards = queryAll(m.container, '.lc-cmd-detail .lc-ts-card')
     assert.equal(cards.length, 2, 'one card for the command, one for the result')
     assert.ok(text(cards[1]).includes('VERDICT: PASS'))
@@ -364,7 +363,7 @@ describe('CommandPanel — the result block', () => {
       configurable: true,
     })
     const m = await mount(h(Panel, { commands: richCommands(), fetchContent: async (seq) => (seq === 52 ? RESULT : null), }))
-    await click(queryAll(m.container, '.lc-cmd-row')[2]) // the failed vitest run
+    await click(queryAll(m.container, '.lc-cmd-row')[2])
     const cards = queryAll(m.container, '.lc-cmd-detail .lc-ts-card')
     assert.equal(cards.length, 2)
     for (const card of cards) {
@@ -522,10 +521,10 @@ describe('CommandPanel — empty and channel states', () => {
       ],
     }))
     const rows = queryAll(m.container, '.lc-cmd-row')
-    await click(rows[0]) // latest-first: the seq-2 bash row
+    await click(rows[0])
     assert.ok(text(query(m.container, '.lc-cmd-detail-facts')).includes('exit 0 ≈'), 'the inferred exit is marked')
     await click(rows[0])
-    await click(queryAll(m.container, '.lc-cmd-row')[1]) // the run_code row
+    await click(queryAll(m.container, '.lc-cmd-row')[1])
     assert.ok(!text(query(m.container, '.lc-cmd-detail-facts')).includes('exit 0'), 'a code program has no shell exit code')
     await m.unmount()
   })
@@ -557,8 +556,8 @@ describe('CommandPanel — empty and channel states', () => {
     await act(async () => { vi.advanceTimersByTime(1300) })
     assert.equal(copyBtn.getAttribute('title'), 'Copy Raw Text')
     const rows = queryAll(m.container, '.lc-cmd-row')
-    await click(rows[0]!) // collapse the seq-2 row
-    await click(queryAll(m.container, '.lc-cmd-row')[1]!) // the seq-1 row
+    await click(rows[0]!)
+    await click(queryAll(m.container, '.lc-cmd-row')[1]!)
     const secondCopy = query(m.container, '.lc-cmd-detail .lc-rich-copy')
     await click(secondCopy)
     await act(async () => {})
@@ -576,7 +575,6 @@ describe('CommandPanel — empty and channel states', () => {
         cmd(3, { cmd: 'node -e "console.log(1)"', resultSeq: 61 }),
       ],
       onLocate: () => {},
-      // No stampOf: the reveal action renders without a stamp suffix.
     }))
     const rows = queryAll(m.container, '.lc-cmd-row')
     assert.ok(text(rows[0]).includes('inline'))

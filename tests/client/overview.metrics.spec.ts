@@ -244,10 +244,8 @@ describe('windowTotalsOf', () => {
     assert.ok(scope !== null)
     const first = windowTotalsOf(activity, scope)
     assert.ok(windowTotalsOf(activity, scope) === first, 'the same window reuses the cached totals')
-    // A rolling preset's floor drifts per minute; the admitted day set (and therefore the totals) is identical.
     const drifted = { start: (scope.start ?? 0) + 60_000, end: scope.end }
     assert.ok(windowTotalsOf(activity, drifted) === first, 'a minute-shifted floor hits the same day-key entry')
-    // A different admitted day set is a different entry.
     const wider = dayRangeWindow({ from: '2026-09-15', to: '2026-09-16' })
     assert.ok(wider !== null)
     assert.notEqual(windowTotalsOf(activity, wider), first)
@@ -339,7 +337,6 @@ describe('kpisOf', () => {
     assert.equal(kpi.usageSessions, 1)
     assert.equal(kpi.turns, 1, 'the out-of-window turn is not counted')
     assert.equal(kpi.tokenParts?.total, 200)
-    // The timing cells mirror the card beside the band: self + subagent, whole lifetime, never the window.
     assert.equal(kpi.timing?.wallMs, 150_000)
     assert.equal(kpi.timing?.calls, 7)
     assert.equal(kpi.timing?.toolsMs, 45_000)

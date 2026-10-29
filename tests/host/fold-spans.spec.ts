@@ -10,7 +10,6 @@ const text = (t: string) => [{ type: 'text', text: t }]
 
 const chunkRec = (time: number, chunk: unknown): unknown => ({ type: 'chunk', time, chunk })
 
-/** tool/call at an explicit instant (the events helper's clock is shared, so the spans specs pin times raw). */
 const toolCallAt = (seq: number, callId: string, time: number): TimelineEvent => ({
   type: 'tool/call', seq, time, data: { callId, name: 'bash', arguments: '{}' },
 })
@@ -99,7 +98,6 @@ describe('spans — the step flush', () => {
   })
 
   test('blocks stamped wholly past the message instant drop out of the tile', () => {
-    // Hostile stream: both markers sit beyond the assistant message's own instant, so they paint nothing.
     const { state } = driveTimeline([
       stepStart(1, { time: 0 }),
       assistantMessage(2, {
@@ -178,7 +176,6 @@ describe('spans — the step flush', () => {
   })
 
   test('spans clamp into the step window; a window wholly outside drops', () => {
-    // A run whose result arrives after the step's end instant (out-of-order log) paints only up to the end…
     const past = driveTimeline([
       stepStart(1, { time: 0 }),
       toolCallAt(2, 'c1', 3_000),
@@ -191,7 +188,6 @@ describe('spans — the step flush', () => {
     ])
     assert.equal(past.state.timing?.toolBusyMs, 1_000, 'clip the busy union into the step window')
     assert.equal(past.state.timing?.toolsMs, 2_000, 'the per-call sum still prices the whole run')
-    // …and a run stamped wholly BEFORE the step's window paints nothing.
     const before = driveTimeline([
       stepStart(1, { time: 3_000 }),
       toolCallAt(2, 'c1', 100),
@@ -224,7 +220,6 @@ describe('spans — the step flush', () => {
     const { state } = driveTimeline([
       stepStart(1, { time: 0 }),
       assistantMessage(2, { time: 1_000, stream: [chunkRec(100, { type: 'text-delta', text: 'x' })] }),
-      // No step/end: the first step's accumulated spans are dropped, not flushed.
       stepStart(3, { time: 10_000 }),
       assistantMessage(4, { time: 11_000, stream: [chunkRec(10_100, { type: 'text-delta', text: 'y' })] }),
       stepEnd(5, { time: 11_400 }),
@@ -238,7 +233,6 @@ describe('spans — the step flush', () => {
 
 describe('spans — retention, wire, and schema faces', () => {
   test('the collection keeps the newest tail past the 2_000-span cap', () => {
-    // 41 steps × 50 spans each is the fold's cost guard for a CI 5s timeout; the cap drops the oldest step whole.
     const events: TimelineEvent[] = []
     for (let i = 0; i < 41; i++) {
       const start = i * 10_000
@@ -284,7 +278,6 @@ describe('spans — retention, wire, and schema faces', () => {
       toolCallAt(3, 'c1', 1_100),
       toolResult(4, { callId: 'c1', content: text('ok'), time: 1_200 }),
       stepEnd(5, { time: 1_400 }),
-      // A step left OPEN mid-accumulation: the intermediate states carry the armed accumulator through the same gate.
       stepStart(6, { time: 2_000 }),
       assistantMessage(7, { time: 3_000, stream: [chunkRec(2_100, { type: 'text-delta', text: 'y' })] }),
     ])
@@ -292,7 +285,6 @@ describe('spans — retention, wire, and schema faces', () => {
       assertPlainJson(state)
       drive.def.stateSchema.parse(structuredClone(state))
     }
-    // A row folded before the collection existed has no `spans` key: the required-key schema rejects it (the stateVersion 22 → 23 bump).
     const stale = structuredClone(drive.state) as unknown as Record<string, unknown>
     delete stale.spans
     assert.throws(() => drive.def.stateSchema.parse(stale))

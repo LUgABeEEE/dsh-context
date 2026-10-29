@@ -132,7 +132,6 @@ describe('timelineOf', () => {
   })
 
   test('a junk entry inside an otherwise well-formed value leaves the fast path and is dropped', () => {
-    // A null/primitive collection element would throw on the first downstream property read, so the guard routes to the sanitizing path.
     const good = { seq: 1, time: 1, system: 0, tools: 0, user: 1, inject: 0, assistant: 0, tool: 0, total: 1 }
     const out = timelineOf({ ok: true, current, requests: [good, null], events: [7], nodes: [{ kind: 'message', seq: 1 }, null, 42, 's'], archive: [], droppedNodes: 0 })
     assert.ok(out !== null)
@@ -152,7 +151,6 @@ describe('timelineOf', () => {
     const dropped = timelineOf({ current: 1, model: 5, provider: {}, contextWindow: 'x', reasoningEffort: 7 })
     assert.ok(dropped !== null)
     for (const key of ['model', 'provider', 'contextWindow', 'reasoningEffort']) assert.ok(!(key in dropped), key)
-    // A hostile, non-finite, or non-positive output cap drops whole (reserve.ts reserves nothing without it).
     for (const maxOutputTokens of ['256000', Number.NaN, Number.POSITIVE_INFINITY, 0, -1]) {
       const capped = timelineOf({ current: 1, maxOutputTokens })
       assert.ok(capped !== null)
@@ -267,7 +265,6 @@ describe('timelineOf', () => {
     assert.equal(out.commandsFloor, 2)
     assert.deepEqual(out.commandStats, { runs: 7, failed: 1, ms: 900, bg: 1 })
     assert.equal(out.spans?.length, 1, 'the strip spans survive, junk entries dropped')
-    // A shapeless stats object drops out (the panel then counts the retained list instead).
     const noStats = timelineOf({ current, commandStats: 'junk' })
     assert.ok(noStats !== null && !('commandStats' in noStats))
 
@@ -327,7 +324,6 @@ describe('tokenUsageOf', () => {
   test('the four-bucket wire value passes as a value; a missing/wrong-typed/non-finite bucket degrades the WHOLE value to null', () => {
     const good = { uncachedInputTokens: 1, outputTokens: 2, cacheReadTokens: 3, cacheWriteTokens: 4 }
     assert.deepEqual(tokenUsageOf(good), good)
-    // The buckets must sum into the billed total; anything short of the strict wire shape drops whole.
     assert.equal(tokenUsageOf({ uncachedInputTokens: 1, outputTokens: 2, cacheReadTokens: 3 }), null, 'missing bucket')
     assert.equal(tokenUsageOf({ total: { input: 100 } }), null, 'a foreign record shape')
     for (const key of Object.keys(good) as (keyof typeof good)[]) {
@@ -724,7 +720,6 @@ describe('activityOf', () => {
     assert.deepEqual(skillsOf(activityOf({ days: { '2026-09-16': { tokens: 15, requests: 1, skills: { tdd: 7 } } } })), undefined)
     assert.deepEqual(skillsOf(activityOf({ days: { '2026-09-16': { tokens: 15, requests: 1, skills: [1] } } })), undefined)
     assert.deepEqual(skillsOf(activityOf({ days: { '2026-09-16': { tokens: 15, requests: 1, skills: { tdd: { n: -1, last: 3 } } } } })), undefined)
-    // An own-key-less table (only inherited keys) dirties too: the rebuild's own-key walk would find nothing.
     const inheritedOnly = Object.create({ ghost: { n: 1, last: 1 } }) as Record<string, unknown>
     assert.deepEqual(skillsOf(activityOf({ days: { '2026-09-16': { tokens: 15, requests: 1, skills: inheritedOnly } } })), undefined)
     const skills = { tdd: { n: 2, last: 1_758_000_000_000 } }
@@ -867,7 +862,6 @@ describe('costFullyQuantified', () => {
   test('a garbage day repairs its scalar fields and keeps readable counters; a bad tally `last` fails the proof on its own', () => {
     const out = activityOf({
       days: {
-        // Non-numeric scalars and a non-record period repair the day in place.
         '2026-09-16': {
           tokens: 5, requests: 1, turns: 'x', toolCalls: -1, toolsMs: Number.NaN, wallMs: 7,
           cost: { deepseek: { m: { peak: [1], off: { uncached: 2, cacheRead: 2, cacheWrite: 2, output: 2 } } } },
@@ -877,7 +871,6 @@ describe('costFullyQuantified', () => {
     })
     assert.deepEqual(out, {
       days: {
-        // The array-valued `peak` drops, the readable `off` bucket survives.
         '2026-09-16': {
           tokens: 5, requests: 1, wallMs: 7,
           cost: { deepseek: { m: { off: { uncached: 2, cacheRead: 2, cacheWrite: 2, output: 2 } } } },
@@ -897,13 +890,11 @@ describe('costFullyQuantified', () => {
     assert.deepEqual(counters, {
       days: { '2026-09-16': { tokens: 9, requests: 2, turns: 3, toolCalls: 4, toolsMs: 500, wallMs: 900 } },
     }, 'the malformed fee drops, the bad-last tally drops the table, the counters stay')
-    // A non-finite `last` (not a non-number) is its own failing arm of the same guard.
     const nanLast = activityOf({ days: { '2026-09-16': { tokens: 1, requests: 1, skills: { tdd: { n: 1, last: Number.NaN } } } } })
     assert.deepEqual(nanLast, { days: { '2026-09-16': { tokens: 1, requests: 1 } } })
   })
 
   test('an own __proto__ key at either level never aliases (the merge it stands in for drops it)', () => {
-    // Only JSON text can carry an own `__proto__` key (an object literal would set the prototype instead).
     const protoProvider = JSON.parse('{"__proto__":{"m":{"peak":{"uncached":1,"cacheRead":2,"cacheWrite":3,"output":4}}}}') as Record<string, unknown>
     assert.ok(Object.keys(protoProvider).includes('__proto__'), 'the fixture really holds an own __proto__ key')
     assert.equal(costFullyQuantified(protoProvider), false)

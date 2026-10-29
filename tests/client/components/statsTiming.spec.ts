@@ -9,7 +9,6 @@ import { makeKit, mount, query, queryAll, text, hover } from '../helpers/kit'
 const kit = makeKit()
 const StatsTiming = makeStatsTiming(kit, Donut)
 
-/** Local HH:MM:SS exactly as the kit's fmtTime renders it (a timezone-free assertion). */
 const timeOf = (ms: number): string => new Date(ms).toLocaleTimeString('en-GB', { hour12: false })
 
 const TIMING: TimingTotals = {
@@ -27,7 +26,6 @@ function rowOf(container: HTMLElement, i: number): { pct: string; label: string;
   }
 }
 
-/** The rows must partition the wall: their printed shares sum to 100.0% (within the 0.1% print granularity). */
 function pctSum(container: HTMLElement): number {
   return queryAll(container, '.lc-sl-pct').reduce((sum, n) => sum + Number.parseFloat(n.textContent ?? '0'), 0)
 }
@@ -54,7 +52,6 @@ describe('StatsTiming', () => {
     assert.equal(query(m.container, '.lc-donut-center span').textContent, 'Active Time')
     assert.deepEqual(rowOf(m.container, 0), { pct: '16.7%', label: 'TTFT', count: '1m40s · 10 calls', dim: false })
     assert.deepEqual(rowOf(m.container, 1), { pct: '23.3%', label: 'LLM Gen', count: '2m20s', dim: false })
-    // A row folded before `toolBusyMs` existed falls back to the per-call sum, attributed within its window.
     assert.deepEqual(rowOf(m.container, 2), { pct: '50.0%', label: 'Tool runs', count: '5m0s · 25 runs', dim: false })
     assert.deepEqual(rowOf(m.container, 3), { pct: '10.0%', label: 'Overhead', count: '1m0s', dim: false })
     assert.ok(Math.abs(pctSum(m.container) - 100) < 0.05, `rows must sum to 100%: ${pctSum(m.container)}`)
@@ -103,8 +100,6 @@ describe('StatsTiming', () => {
     const timing: TimingTotals = { wallMs: 0, ttftMs: 5_000, genMs: 0, calls: 3, toolsMs: 0, toolCalls: 1, tools: { bash: { calls: 1, ms: 0 } } }
     const m = await mount(h(StatsTiming, { timing }))
     assert.equal(query(m.container, '.lc-donut-center b').textContent, '—')
-    // Only TTFT carries time; the zero slices are dropped whole (a dash has nothing to qualify, and
-    // their borrowed call count would mislead). The residual row keeps its slot so the card never resizes.
     assert.equal(queryAll(m.container, '.lc-sl-row').length, 2)
     assert.deepEqual(rowOf(m.container, 0), { pct: '—', label: 'TTFT', count: '5.0s · 3 calls', dim: false })
     assert.deepEqual(rowOf(m.container, 1), { pct: '—', label: 'Overhead', count: '—', dim: true })
@@ -112,7 +107,6 @@ describe('StatsTiming', () => {
   })
 
   test('a zero slice is omitted, but the residual overhead row keeps its slot', async () => {
-    // No reasoning output, no tool calls: rows that would borrow the session's call count are dropped.
     const timing: TimingTotals = {
       wallMs: 532, ttftMs: 480, genMs: 52, reasoningMs: 0, textMs: 52, toolArgMs: 0,
       calls: 1, toolsMs: 0, toolCalls: 0, tools: {},
@@ -127,7 +121,6 @@ describe('StatsTiming', () => {
 })
 
 describe('StatsTiming — the generation split', () => {
-  // genMs 140s splits into thinking 90s, answer 30s, tool args 20s.
   const SPLIT: TimingTotals = {
     wallMs: 600_000, ttftMs: 100_000, genMs: 140_000, reasoningMs: 90_000, textMs: 30_000, toolArgMs: 20_000,
     calls: 10, toolsMs: 300_000, toolCalls: 25, tools: { bash: { calls: 15, ms: 200_000 } },
@@ -147,8 +140,6 @@ describe('StatsTiming — the generation split', () => {
   })
 
   test('decode slices never borrow call counts; their own block tallies qualify them; absent tallies render duration alone', async () => {
-    // One model call can emit several tool-call blocks and often no reasoning at all, so a borrowed
-    // per-call count would be a false tally.
     const borrowed = await mount(h(StatsTiming, { timing: { ...SPLIT, calls: 236, toolCalls: 302 } }))
     const sub = (i: number): string => queryAll(borrowed.container, '.lc-sl-sub')[i]?.textContent ?? ''
     assert.equal(sub(0), '1m40s · 236 calls', 'TTFT keeps its per-call count')
@@ -173,8 +164,6 @@ describe('StatsTiming — the generation split', () => {
   })
 
   test('a hostile bucket total exceeding the generation window clamps only the shares, never the measured figures', async () => {
-    // The buckets claim 500s inside a 140s window: the shares cap into the wall, while each model row keeps its
-    // measured duration — and a real bucket with no attributed window stays visible at 0.0% instead of vanishing.
     const timing: TimingTotals = { ...SPLIT, reasoningMs: 400_000, textMs: 100_000, toolArgMs: 0 }
     const m = await mount(h(StatsTiming, { timing }))
     assert.deepEqual(rowOf(m.container, 0), { pct: '16.7%', label: 'TTFT', count: '1m40s · 10 calls', dim: false })
@@ -219,8 +208,6 @@ describe('StatsTiming — the session-time strip', () => {
     wallMs: 600_000, ttftMs: 100_000, genMs: 140_000, reasoningMs: 90_000, textMs: 30_000, toolArgMs: 20_000,
     calls: 10, toolsMs: 300_000, toolCalls: 25, tools: { bash: { calls: 15, ms: 200_000 } },
   }
-  // A 50-second session window (epoch 1s → 51s) holding 40s of ACTIVE time: the decode slices, then
-  // tools and overhead, with 5s idle gaps (21s → 26s and 41s → 46s) that take no track on the strip.
   const SPANS: TimingSpan[] = [
     { kind: 'ttft', start: 1_000, end: 6_000 },
     { kind: 'reasoning', start: 6_000, end: 16_000 },

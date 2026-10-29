@@ -29,8 +29,6 @@ const TEAM_PROJECTION = {
   ],
 }
 
-/** A stable-snapshot sessions face (useSyncExternalStore loops on a fresh object per read). A caller may lift the
- * change stamps past an earlier test's page-scope detail ledger. */
 function familySessions(base = 10) {
   const snapshot = {
     byId: {
@@ -309,7 +307,6 @@ describe('FleetView — the panels over one family', () => {
 
   test('a fleet-detail read that serves nothing leaves the boards standing', async () => {
     vi.stubGlobal('fetch', () => Promise.resolve({ ok: false, status: 503 } as Response))
-    // Fresh session ids: the page-scope read ledger carries no settled line for them.
     const team = {
       members: [
         { id: 'cold-root', name: 'cold-lead', role: 'lead', phase: 'active' },
@@ -418,8 +415,6 @@ describe('FleetView — the panels over one family', () => {
   })
 
   test("a task card's report-back: the excerpt boards first, then the full read replaces it", async () => {
-    // Fresh session ids: the page-scope read ledger carries no settled line for them (it outlives
-    // the mounts in this file), so this test's stub owns the full protocol.
     const team = {
       members: [
         { id: 'rq-root', name: 'lead', role: 'lead', phase: 'active' },
@@ -474,7 +469,6 @@ describe('FleetView — the panels over one family', () => {
     await until(() => text(m.container).includes('13 of 15 cases, fully reported.'), 'the full read never replaced the excerpt')
     assert.ok(!text(m.container).includes(DICT_EN['fleet.tasks.replyFull']), 'the note yields once full')
 
-    // A fold-back and re-unfold never re-ask: the ledger keyed once per session per mount.
     await click(query(m.container, '[data-task="task-1"]'))
     await click(query(m.container, '[data-task="task-1"]'))
     await until(() => fulls.length === 1 && text(m.container).includes('fully reported.'), 're-unfolding lost the full text')

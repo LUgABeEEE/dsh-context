@@ -56,7 +56,7 @@ describe('createContextTimelineDefinition', () => {
     assert.ok(view.requests.length > 0)
     assert.ok(view.events.length > 0)
     for (const state of drive.states) {
-      def.stateSchema.parse(structuredClone(state)) // throws on drift
+      def.stateSchema.parse(structuredClone(state))
     }
     assert.equal(def.wire.viewSchema.safeParse(def.wire.view(drive.state)).success, true)
   })

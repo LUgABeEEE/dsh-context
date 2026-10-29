@@ -108,7 +108,6 @@ describe('timing — tool call durations', () => {
       toolResult(5, { callId: 'c1', content: text('ok'), time: 8_000 }),
       toolResult(6, { callId: 'c2', content: text('ok'), time: 8_000 }),
       stepEnd(7, { time: 9_000 }),
-      // A result whose call landed outside any open step still prices the per-call sum, never a painted window.
       { type: 'tool/call', seq: 8, time: 10_000, data: { callId: 'c3', name: 'bash', arguments: '{}' } },
       toolResult(9, { callId: 'c3', content: text('ok'), time: 12_000 }),
     ])
@@ -145,7 +144,6 @@ describe('timing — tool call durations', () => {
   test('the per-name tally stays bounded: the smallest ms evicts past 16 names', () => {
     const events: TimelineEvent[] = []
     let seq = 1
-    // Tool 't0' is the cheapest (100ms); every later tool is costlier.
     for (let i = 0; i < 17; i++) {
       events.push({ type: 'tool/call', seq: seq++, time: i * 1_000, data: { callId: 'c' + i, name: 't' + i, arguments: '{}' } })
       events.push(toolResult(seq++, { callId: 'c' + i, content: text('ok'), time: i * 1_000 + (i === 0 ? 100 : 5_000) }))
@@ -186,7 +184,6 @@ describe('timing — the generation split (reasoning / text / tool args)', () =>
   })
 
   test('an unstamped call carries no split (its model time is unattributed wholesale)', () => {
-    // Block markers but no token: the call prices no generation time, so its spans must not reappear as generation.
     const { state } = driveTimeline([
       stepStart(1, { time: 0 }),
       assistantMessage(2, {
@@ -227,7 +224,6 @@ describe('timing — the generation split (reasoning / text / tool args)', () =>
         stream: [
           chunkRec(100, { type: 'block-start', index: 0, blockType: 'reasoning' }),
           { type: 'reasoning-chunks', time0: 100, index: 0, dt: [], texts: ['x'] },
-          // The text marker's unusable time anchors no span and counts nothing — the open reasoning block tiles on.
           chunkRec(Number.NaN, { type: 'block-start', index: 0, blockType: 'text' }),
         ],
       }),
@@ -300,7 +296,6 @@ describe('timing — served wire view', () => {
 
   test('a hostile __proto__ tool name books no row and keeps the served view schema-valid', () => {
     const def = timelineDef({})
-    // One hostile tool only: a later tool-run event re-clones the tally through a spread, laundering the damage.
     const drive = driveTimeline([
       toolCall(5, { callId: 'c1', name: '__proto__' }),
       toolResult(6, { callId: 'c1', content: text('ok') }),
@@ -309,9 +304,6 @@ describe('timing — served wire view', () => {
     assert.equal(Object.getPrototypeOf(tools), Object.prototype, 'the tally keeps a plain prototype')
     assert.deepEqual(Object.keys(tools), [], 'the reserved name books no row')
     assert.deepEqual(drive.view.timing?.tools, {}, 'nothing inherited rides the wire')
-    // The consequence this guards: assigning that name sets the prototype instead of a row, so foldWire's
-    // `for...in` copies the inherited `calls`/`ms` as `{}` — which the strict tool-timing schema rejects, and the
-    // registry's drive has no error boundary, so the throw would stall this unit's push feed for good.
     const wire = def as unknown as { wire: { viewSchema: { parse(v: unknown): unknown } } }
     assert.doesNotThrow(() => wire.wire.viewSchema.parse(drive.view))
   })
@@ -320,22 +312,16 @@ describe('timing — served wire view', () => {
     const def = timelineDef({})
     const drive = driveTimeline([
       toolCall(5, { callId: '__proto__', name: 'bash' }),
-      // Any later result runs the pairing-map rebuild: an inherited entry would land as own scalar props.
       toolResult(6, { callId: 'c1', content: text('ok') }),
     ])
     const names = drive.state.callNames ?? {}
     assert.equal(Object.getPrototypeOf(names), Object.prototype, 'the pairing map keeps a plain prototype')
     assert.deepEqual(Object.keys(names), [], 'the reserved id arms no row')
-    // The consequence this guards: assigning that id installs the entry as the map's prototype instead of a row,
-    // so the rebuild's `for...in` copies its name/start as own scalars — which the record-of-objects state schema
-    // rejects on every restore, forcing the session off its checkpoint channel.
     const c = def as unknown as { stateSchema: { parse(s: unknown): unknown } }
     assert.doesNotThrow(() => c.stateSchema.parse(structuredClone(drive.state)))
   })
 
   test('a tool/result citing the reserved id pairs no tool and leaves no undefined property', () => {
-    // driveTimeline's assertNoAbsentMembers fails on any own undefined property, so reaching the assertions below
-    // already proves no `node.tool = undefined` materialized from the prototype lookup.
     const drive = driveTimeline([toolResult(5, { callId: '__proto__', content: text('ok') })])
     const node = drive.state.surface.at(-1)
     assert.ok(node !== undefined && !('tool' in node), 'no own tool property materializes from the prototype')
@@ -348,12 +334,11 @@ describe('timing — served wire view', () => {
       toolCall(5, { callId: 'c1', name: 'bash' }),
       toolResult(6, { callId: 'c1', content: text('ok') }),
       stepEnd(7, { time: 30_000 }),
-      // A step left OPEN with a stamped slot: the final state carries stepStart.{time,firstToken} for the gate.
       stepStart(8, { time: 40_000 }),
       assistantAttempt(9, { stream: [chunkRec(40_100, { type: 'text-delta', text: 'x' })] })])
     const c = def as unknown as { stateSchema: { parse(s: unknown): unknown } }
     for (const state of drive.states) {
-      c.stateSchema.parse(structuredClone(state)) // throws on drift
+      c.stateSchema.parse(structuredClone(state))
       assertPlainJson(state)
     }
     assert.ok(drive.state.stepStart?.firstToken !== undefined, 'the open slot carried the stamp')
@@ -456,7 +441,6 @@ describe('timing — the step\'s active time (user waits priced out)', () => {
     ]).state
     assert.equal(bare.requests.length, 0)
     assert.equal(bare.timing?.wallMs, 5_000)
-    // The seq guard: the open step armed no back-pointer, so the earlier step's record keeps its own stamp untouched.
     const { state } = driveTimeline([
       ...step(1, 0, 1_000, { tokenMs: 200 }),
       stepStart(4, { time: 10_000 }),

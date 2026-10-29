@@ -1,7 +1,3 @@
-/** The projection warm-up: a one-pass, on-demand backfill giving stored sessions their `contextActivity` +
- * `contextTimeline` rows. OPTIONAL BY CONTRACT: every face re-proved, each session isolated; absent services never
- * arm the pass, and an unconvertible log's detail drops to debug under one summary line. */
-
 import { asRecord } from './record'
 import { performance } from 'node:perf_hooks'
 import type { Context } from '@deepseek-ai/cordis'
@@ -21,8 +17,6 @@ interface ProjectionCacheLike {
   coldSnapshot(header: SessionHeader, inheritedEventCount: unknown, events: readonly SessionEvent[]): unknown
 }
 
-/** The sliced fold's extra faces, all re-proved at runtime; any absence keeps the single-shot path (`prepare`/`write` are the same faces
- * session-query's observation handoff uses). */
 interface SlicedFoldFaces {
   restore(
     checkpoint: unknown, events: readonly SessionEvent[], baseSeq: number, header: SessionHeader, inheritedEventCount: unknown,
@@ -43,17 +37,13 @@ interface PersistenceLike {
   open(id: string, access: 'read', options?: { signal?: AbortSignal }): Promise<ReadHandleLike>
 }
 
-/** The pacing floor for BOTH granularities: each cold read is a full log decode, and the pass must never exceed ~50% duty. */
 const MIN_REST_MS = 25
 
-/** ~25ms of synchronous fold per slice (measured ≤88ms with per-slice re-validation), so no event loop block. */
 const SLICE_EVENTS = 2_000
 
-/** The pass takes a full recovery pause after this much cumulative fold time, then resumes where it stopped. */
 const ROUND_WORK_BUDGET_MS = 8_000
 const ROUND_PAUSE_MS = 2_000
 
-/** The pacing seam, injectable for tests (mirroring the cold-read gate's `reading`). */
 export interface BackfillPacing {
   now: () => number
   sleep: (ms: number) => Promise<void>
@@ -70,7 +60,6 @@ const DEFAULT_PACING: BackfillPacing = {
   roundPauseMs: ROUND_PAUSE_MS,
 }
 
-/** The dsh error-name prefix for an unconvertible log; classify by prefix and import no dsh symbol. */
 const UNSUPPORTED_FORMAT = 'SessionFormatUnsupported'
 
 function headerOf(record: unknown): SessionHeader | null {
@@ -84,8 +73,6 @@ const PROBE_KEYS = ['contextActivity', 'contextTimeline']
 
 function servesRows(cache: ProjectionCacheLike, header: SessionHeader): boolean {
   try {
-    // Unseeded sessions carry no inherited prefix (cut 0) and a seeded header's real cut only arrives with the log read, so the probe
-    // misses; a version-stale row or a hostile face's throw reads as absent too.
     const block = asRecord(cache.cachedSnapshot(header, PROBE_KEYS))
     const values = asRecord(block?.values)
     return values !== null
@@ -96,7 +83,6 @@ function servesRows(cache: ProjectionCacheLike, header: SessionHeader): boolean 
   }
 }
 
-/** Read one stored log through a read handle, mirroring dsh-session-query's `readColdSessionLog`. */
 async function readColdLog(
   persistence: PersistenceLike,
   id: string,
@@ -106,13 +92,12 @@ async function readColdLog(
   let events: readonly SessionEvent[]
   try {
     const raw: unknown = await handle.read(0, undefined, { signal })
-    // A hostile persistence result serves an empty log, never a throw.
     const result = asRecord(raw)?.events
     events = Array.isArray(result) ? result : []
   } catch (error: unknown) {
     try {
       await handle.close()
-    } catch { /* the read failure is the actionable cause */ }
+    } catch {}
     throw error
   }
   await handle.close()
@@ -123,8 +108,6 @@ async function readColdLog(
   }
 }
 
-/** Whether one session is live (it folds for itself — a cold write would race its own checkpoints); a throwing registry read
- * conservatively skips too: better an unfolded row than a write over a possibly-live session. */
 function isLive(sessions: Record<string, unknown> | null, id: string): boolean {
   if (sessions === null || typeof sessions.get !== 'function') return false
   try {
@@ -134,15 +117,11 @@ function isLive(sessions: Record<string, unknown> | null, id: string): boolean {
   }
 }
 
-/** The sliced fold's per-session outcome: rows landed, the session went live mid-fold (skip silently), or the pass was aborted (stop
- * quietly); `workMs` is the measured slice work, never billed twice. */
 interface SliceOutcome {
   outcome: 'done' | 'live' | 'aborted'
   workMs: number
 }
 
-/** One cold fold in event-count slices: each slice seeds from the previous slice's in-memory rows and exactly ONE durable write-back
- * lands at the end, so a crash mid-fold leaves no partial rows. */
 async function coldSnapshotSliced(
   ctx: Context,
   faces: SlicedFoldFaces,
@@ -175,16 +154,13 @@ async function coldSnapshotSliced(
       eventState: 'shared-frozen',
     })
   } catch (error: unknown) {
-    // The store rejects an id with a live owner: the session attached mid-fold and now folds for itself.
     if (isLive(sessions, header.id)) return { outcome: 'live', workMs }
     throw error
   }
-  // The rows end at the log's last seq, so `hydrate` installs the cells without refolding.
   faces.hydrate(prepared, rows, events, 0)
   try {
     await faces.write(prepared)
   } catch (error: unknown) {
-    // Fail-soft, mirroring the cache's own write-back posture: a lost write costs a refold next pass, never a wrong row.
     ctx.logger.warn(`dsh-context: projection backfill write-back for "${header.id}" failed (cache stays stale): ${messageOf(error)}`)
   }
   return { outcome: 'done', workMs }
@@ -198,7 +174,6 @@ function isUnsupportedFormat(error: unknown): boolean {
   }
 }
 
-/** Printable form — a hostile error may throw on its own `toString`. */
 function messageOf(error: unknown): string {
   try {
     return String(error)
@@ -207,8 +182,6 @@ function messageOf(error: unknown): string {
   }
 }
 
-/** Arm the warm-up behind its trigger route: whichever of the route and the cold-path faces lands second launches the one pass. Returns
- * the deferred injects' disposer (abort on unload). */
 export function watchActivityBackfill(
   ctx: Context,
   coldReads: ColdReadGate = makeColdReadGate(),
@@ -249,8 +222,6 @@ export function watchActivityBackfill(
     if (persistence === null || typeof persistence.open !== 'function') return
     const sessions = asRecord(injected.sessions)
 
-    // The sliced fold's faces: the registry the plugin already injects, plus the sessions and cache write verbs. Any
-    // absence keeps every session on the single-shot path; bind at extraction, since an unbound hand-off loses `this`.
     const registry = asRecord((ctx as unknown as Record<string, unknown>).sessionProjections)
     const sliceFaces: SlicedFoldFaces | null = registry !== null
       && typeof registry.restore === 'function'
@@ -273,8 +244,6 @@ export function watchActivityBackfill(
       let folded = 0
       let refused = 0
       let paused = false
-      // One rest serves both granularities: proportional to the work just done, with a full recovery break every
-      // workBudgetMs of cumulative fold time. The sleep wakes early on abort so dispose never waits out a pause.
       let roundWork = 0
       const sleep = async (ms: number): Promise<void> => {
         if (abort.signal.aborted) return
@@ -312,7 +281,6 @@ export function watchActivityBackfill(
         try {
           const admitted = await coldReads.admit(async () => {
             const log = await readColdLog(persistence as unknown as PersistenceLike, header.id, abort.signal)
-            // The handle's header is authoritative (fixed at open); the listed one was its probe.
             if (sliceFaces !== null && log.events.length > SLICE_EVENTS) {
               const sliced = await coldSnapshotSliced(ctx, sliceFaces, sessions, log, abort.signal, rest, pacing.now)
               slicedWorkMs = sliced.workMs
@@ -322,7 +290,6 @@ export function watchActivityBackfill(
             return 'done' as const
           })
           if (admitted === undefined) {
-            // Heap pressure will not fall within a pacing tick, so re-probing per session only delays the host.
             paused = true
             break
           }
@@ -330,15 +297,12 @@ export function watchActivityBackfill(
           if (admitted === 'done') folded++
         } catch (error: unknown) {
           if (isUnsupportedFormat(error)) {
-            // Permanent and source-side: the per-session detail drops to debug; the summary below is the pass's only above-debug word.
             refused++
             ctx.logger.debug(`dsh-context: projection backfill skipped "${header.id}" (${messageOf(error)})`)
           } else {
             ctx.logger.warn(`dsh-context: projection backfill skipped "${header.id}" (${messageOf(error)})`)
           }
         }
-        // Slice work already rested (and was billed) mid-fold; the session-level rest covers the remainder only — decode, write-back, or
-        // the whole single-shot fold.
         await rest(Math.max(0, pacing.now() - started - slicedWorkMs))
       }
       if (folded > 0) ctx.logger.info(`dsh-context: projection rows backfilled for ${folded} session(s)`)

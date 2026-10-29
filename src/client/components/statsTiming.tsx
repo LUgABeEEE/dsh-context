@@ -12,12 +12,10 @@ interface Slice {
   key: string
   color: string
   label: string
-  /** The window the row prints; its share still comes from the clamped ring window beside it. */
   ms: number
   times?: string
 }
 
-/** One slice with its share of the wall: `ring` can be smaller than `slice.ms` only for a hostile over-long log. */
 interface TimingSlice {
   slice: Slice
   ring: number
@@ -26,7 +24,6 @@ interface TimingSlice {
 
 const COLOR = TIMING_COLOR
 
-/** Decode throughput, formatted exactly as the harness's own session-stats seat: whole tokens from ten up, one decimal below. */
 function formatTokensPerSecond(tps: number): string {
   const clamped = Math.max(0, tps)
   return clamped >= 10 ? String(Math.round(clamped)) : String(Math.round(clamped * 10) / 10)
@@ -34,7 +31,6 @@ function formatTokensPerSecond(tps: number): string {
 
 export interface StatsTimingProps {
   timing: TimingTotals | null
-  /** Per-step time slices; absent on the overview aggregate card and on rows folded before the collection existed. */
   spans?: TimingSpan[]
   locale?: string
 }
@@ -46,8 +42,6 @@ export function makeStatsTiming(kit: ViewKit, Donut: (props: DonutProps) => Reac
     const [hoverKey, setHoverKey] = useState<string | null>(null)
     const timing = props.timing
     const wall = timing !== null && Number.isFinite(timing.wallMs) && timing.wallMs > 0 ? timing.wallMs : 0
-    // Host-paired output tokens over decode windows, exactly as the harness session-stats fold does; an unreadable pairing renders no
-    // figure.
     const tps = timing !== null
       && typeof timing.speedMs === 'number' && Number.isFinite(timing.speedMs) && timing.speedMs > 0
       && typeof timing.speedTokens === 'number' && Number.isFinite(timing.speedTokens) && timing.speedTokens >= 0
@@ -56,12 +50,10 @@ export function makeStatsTiming(kit: ViewKit, Donut: (props: DonutProps) => Reac
     let segments: DonutSegment[] = []
     let rows: SliceRow[] = []
     if (timing !== null && (wall > 0 || timing.calls > 0 || timing.toolCalls > 0)) {
-      // Model slices run from the step's start to its assistant message: TTFT to the first token, generation from there.
       const callTimes = t('timing.callTimes', { n: fmt(timing.calls) })
       const modelSlices: Slice[] = [
         { key: 'ttft', color: COLOR.ttft, label: t('timing.ttft'), ms: timing.ttftMs, times: callTimes },
       ]
-      // The generation window expands into decode buckets only when the buckets carry time (absent reads 0).
       const blockTimes = (blocks?: number): string | undefined =>
         blocks !== undefined && blocks > 0 ? t('timing.blockTimes', { n: fmt(blocks) }) : undefined
       const buckets: [key: string, color: string, label: string, ms: number, times?: string][] = [
@@ -77,8 +69,6 @@ export function makeStatsTiming(kit: ViewKit, Donut: (props: DonutProps) => Reac
       } else {
         modelSlices.push({ key: 'gen', color: COLOR.reasoning, label: t('timing.gen'), ms: timing.genMs })
       }
-      // Ring windows: TTFT, then generation, then tools with what is left; the residue is overhead. Every window clamps
-      // into the space its predecessors leave, so a hostile over-long slice never pushes the ring past the wall.
       const ttftRing = Math.min(timing.ttftMs, wall)
       const genRing = Math.max(0, Math.min(timing.genMs, wall - ttftRing))
       const modelRings: number[] = [ttftRing]
@@ -89,22 +79,15 @@ export function makeStatsTiming(kit: ViewKit, Donut: (props: DonutProps) => Reac
         modelRings.push(take)
         used += take
       }
-      // The tool slice is the per-step busy UNION: parallel runs share one window, so the per-call sum would double
-      // wall time. A row folded before that field existed falls back to the sum, clamped below.
       const toolMs = timing.toolBusyMs ?? timing.toolsMs
       const toolRing = Math.max(0, Math.min(toolMs, wall - ttftRing - genRing))
-      // Every share comes from these attributed windows, so no row can exceed the wall; the unallocated generation
-      // gap, if any, lands in the residue.
       const other = Math.max(0, wall - used - toolRing)
       const share = (ms: number): number => (wall > 0 ? ms / wall : 0)
-      // The secondary line leads with the duration and qualifies it with the tally; a zero-duration slice keeps the tally.
       const countOf = (ms: number, times?: string): string => {
         const dur = fmtDuration(ms)
         if (times === undefined) return dur
         return ms > 0 ? `${dur} · ${times}` : times
       }
-      // The tools row prints its wall-attributed window (never the per-call sum); the sum survives in the tip whenever
-      // the two differ, including the legacy clamped fallback.
       const toolDisplayMs = wall > 0 ? toolRing : toolMs
       const toolSlice: Slice = {
         key: 'tools',
@@ -127,15 +110,11 @@ export function makeStatsTiming(kit: ViewKit, Donut: (props: DonutProps) => Reac
         key: slice.key,
         color: slice.color,
         label: slice.label,
-        // A model row keeps its MEASURED duration; its share still comes from the attributed ring window, so a hostile
-        // over-long bucket prints honestly as a 0.0% row instead of vanishing or rewriting its own figure.
         dim: slice.ms === 0,
         pct: fmtShare(ring, wall),
         count: countOf(slice.ms, slice.times),
         ...(tip !== undefined ? { tip } : {}),
       })
-      // A slice that never happened stays hidden (a "0.0%" row carrying the tally reads as "many calls, no time").
-      // The residual overhead row is the exception: its transient zero clamp would resize the card at every step boundary.
       const sliceRows = slices.map(toRow)
       rows = sliceRows.some(row => !row.dim)
         ? sliceRows.filter(row => !row.dim || row.key === otherSlice.key)
@@ -169,7 +148,6 @@ export function makeStatsTiming(kit: ViewKit, Donut: (props: DonutProps) => Reac
                 />
                 <SliceList rows={rows} hoverKey={hoverKey} onHoverKey={setHoverKey} />
               </div>
-              {/* The strip joins the hover link: a span hover lights every span of its KIND plus the donut arc and legend row. */}
               {props.spans !== undefined && props.spans.length > 0
                 ? <TimingStrip spans={props.spans} hoverKey={hoverKey} onHoverKey={setHoverKey} locale={props.locale} />
                 : null}
