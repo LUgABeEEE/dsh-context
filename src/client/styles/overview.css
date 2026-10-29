@@ -4,6 +4,7 @@
 /* No width cap: the shipped first-level pages frame at 960px, this page adapts to the pane. The gutter is pane-sized
    (cqi) and tighter than that frame, leaving the stats pair room for two-column legends. */
 .lc-ov-pagecontent { padding: 0 clamp(16px, 2.5cqi, 32px) 48px; }
+.lc-ov-page .lc-card { padding: 10px 12px; }
 .lc-ov-pagehead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-top: 28px; margin-bottom: 24px; }
 /* macOS hiddenInset titlebar clearance, so first-level pages align with the frame. */
 [data-platform='darwin'] .lc-ov-pagehead { padding-top: calc(28px + var(--dsh-frame-top-clearance, 0px)); }
