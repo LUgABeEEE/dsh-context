@@ -198,7 +198,7 @@ export function makeFleetView(
     )
     const boardsColumn = forest !== null
       ? (
-        <div className="lc-col flex-1 min-w-[min(360px,100%)]">
+        <div className="lc-col lc-col-boards flex-1 min-w-[min(360px,100%)]">
           <MemberBoard
             team={team}
             forest={forest}
@@ -250,7 +250,7 @@ export function makeFleetView(
             </div>
           )
           : null}
-        {forest !== null && !forest.solo
+        {forest !== null
           ? (
             <CommsPanel
               details={details}

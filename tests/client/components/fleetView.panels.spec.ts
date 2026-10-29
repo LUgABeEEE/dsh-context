@@ -346,6 +346,7 @@ describe('FleetView — the panels over one family', () => {
     const columns = queryAll(query(m.container, '.lc-cols'), '.lc-col')
     assert.equal(columns.length, 2)
     assert.ok(columns[0].contains(query(m.container, '.lc-agents')), 'the network owns the left column')
+    assert.ok(columns[1].classList.contains('lc-col-boards'), 'the boards column stacks its cards')
     assert.ok(columns[1].contains(query(m.container, '.lc-members')), 'the members board heads the right column')
     assert.ok(columns[1].contains(query(m.container, '.lc-tasks')), 'the task board sits under it')
     const leadCard = queryAll(m.container, '.lc-member-card')[0]
@@ -369,7 +370,7 @@ describe('FleetView — the panels over one family', () => {
     }
   })
 
-  test('a solo session keeps the boards up with guidance — the graph, the strip, and pointers', async () => {
+  test('a solo session keeps the boards up with guidance — the graph, the strip, the comms card, and pointers', async () => {
     stubFleetRoute()
     const snapshot = { byId: { only: { displayTitle: 'Solo', running: false, updatedAt: 1 } } }
     const ctx = new TestClientCtx({ services: { sessions: { list: { getSnapshot: () => snapshot, subscribe: () => () => {} } } } })
@@ -380,7 +381,7 @@ describe('FleetView — the panels over one family', () => {
     assert.equal(queryAll(m.container, '.lc-summary-progress').length, 0)
     assert.ok(text(query(m.container, '.lc-members')).includes(DICT_EN['fleet.board.solo']))
     assert.ok(text(query(m.container, '.lc-tasks')).includes(DICT_EN['fleet.tasks.noTeam']))
-    assert.equal(queryAll(m.container, '.lc-comms').length, 0)
+    await until(() => text(query(m.container, '.lc-comms')).includes(DICT_EN['fleet.comms.empty']), 'the empty comms card never settled')
     await m.unmount()
     ctx.dispose()
   })

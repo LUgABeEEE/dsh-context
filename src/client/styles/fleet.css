@@ -113,6 +113,8 @@
 .lc-tasks-group-completed .lc-tasks-group-head { color: var(--dsw-alias-state-success-primary, var(--color-green-500)); border-bottom-color: color-mix(in srgb, var(--dsw-alias-state-success-primary, var(--color-green-500)) 45%, transparent); }
 .lc-tasks-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 
+.lc-col-boards { display: flex; flex-direction: column; }
+
 .lc-tasks { position: relative; display: flex; flex-direction: column; overflow: hidden; max-height: max(560px, calc(var(--lc-graph-h, 0px) - var(--lc-members-h, 0px) - 7px)); }
 .lc-tasks-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; scroll-padding-top: 35px; }
 .lc-tasks-body::after { content: ''; position: sticky; bottom: 0; display: block; height: 44px; margin-top: -44px; pointer-events: none; background: linear-gradient(rgba(0, 0, 0, 0), color-mix(in srgb, var(--dsw-alias-bg-layer-1) 92%, transparent)); }
