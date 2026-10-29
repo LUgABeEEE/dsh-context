@@ -13,6 +13,7 @@ import {
   seedConversationViewVia,
   sessionAddressOf,
   timelineOf,
+  activeMsOf,
   timingOf,
   tokenUsageOf,
   workspaceOf,
@@ -371,6 +372,18 @@ describe('timingOf', () => {
     const out = timingOf({ wallMs: 1, tools: JSON.parse('{"__proto__": {"calls": 1, "ms": 5}}') })
     assert.deepEqual(out?.tools, {})
     assert.equal(Object.getPrototypeOf(out?.tools ?? {}), Object.prototype)
+  })
+
+  test('the idle carve and the hostile idle scalar ride the optional face; activeMsOf prices wall minus idle', () => {
+    assert.deepEqual(timingOf({ ...wellFormed, idleMs: 5_000 }), { ...wellFormed, idleMs: 5_000 })
+    assert.ok(!('idleMs' in (timingOf({ ...wellFormed, idleMs: -1, toolBusyMs: 3 }) ?? {})), 'a negative carve degrades to absent')
+    for (const timing of [null, undefined]) assert.equal(activeMsOf(timing), 0)
+    assert.equal(activeMsOf({ ...wellFormed, wallMs: 0, idleMs: 5_000 }), 0)
+    assert.equal(activeMsOf({ ...wellFormed, idleMs: 0 }), 60_000, 'a zero carve keeps the wall')
+    assert.equal(activeMsOf({ ...wellFormed, idleMs: Number.NaN }), 60_000, 'a hostile carve keeps the wall')
+    assert.equal(activeMsOf({ ...wellFormed, idleMs: 90_000 }), 0, 'the carve clamps to the wall')
+    assert.equal(activeMsOf(wellFormed), 60_000, 'a pre-field row keeps the wall')
+    assert.equal(activeMsOf({ ...wellFormed, idleMs: 5_000 }), 55_000)
   })
 
   test('optional split and block fields stay ABSENT when absent, pass through when well-formed, and drop alone when hostile', () => {

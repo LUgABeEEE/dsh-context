@@ -1,4 +1,4 @@
-import type { CostBucketTotals, CostModelUsage, SessionCostUsage, TimingTotals, ToolTimingTotals } from '../shared/types'
+import type { CostBucketTotals, CostModelUsage, SessionCostUsage, TimingSpan, TimingTotals, ToolTimingTotals } from '../shared/types'
 import { isDeepSeekProvider } from '../shared/providers'
 import type { DecodeKind } from './logShapes'
 import type { TimelineState } from './foldState'
@@ -129,4 +129,65 @@ export function bumpToolTotals(timing: TimingTotals, name: string, ms: number): 
   }
   const cur = timing.tools[name]
   timing.tools[name] = { calls: cur.calls + 1, ms: cur.ms + ms }
+}
+
+export const IDLE_MIN_MS = 120_000
+
+export interface IdleWindow {
+  start: number
+  end: number
+}
+
+export function idleGapWindows(beats: readonly number[], from: number, to: number, zoneStart: number): IdleWindow[] {
+  const windows: IdleWindow[] = []
+  let prev = from
+  for (const t of beats) {
+    if (!(t > prev) || !Number.isFinite(t)) continue
+    if (t >= to) break
+    pushIdleGap(windows, prev, t, zoneStart)
+    prev = t
+  }
+  pushIdleGap(windows, prev, to, zoneStart)
+  return windows
+}
+
+function pushIdleGap(windows: IdleWindow[], from: number, to: number, zoneStart: number): void {
+  const idleFrom = Math.max(from, zoneStart)
+  if (Number.isFinite(idleFrom) && to - idleFrom >= IDLE_MIN_MS) {
+    windows.push({ start: idleFrom, end: to })
+  }
+}
+
+export function mergeWindows(list: readonly IdleWindow[]): IdleWindow[] {
+  const sorted = list
+    .filter(w => Number.isFinite(w.start) && Number.isFinite(w.end) && w.end > w.start)
+    .sort((a, b) => (a.start - b.start) || (a.end - b.end))
+  const out: IdleWindow[] = []
+  for (const window of sorted) {
+    const last = out.at(-1)
+    if (last !== undefined && window.start <= last.end) {
+      if (window.end > last.end) last.end = window.end
+      continue
+    }
+    out.push({ ...window })
+  }
+  return out
+}
+
+export function carveWindows(out: TimingSpan[], kind: TimingSpan['kind'], from: number, to: number, idle: readonly IdleWindow[]): number {
+  if (!(to > from)) return 0
+  let cursor = from
+  let carved = 0
+  for (const window of idle) {
+    if (window.end <= cursor) continue
+    if (window.start >= to) break
+    const a = Math.max(cursor, window.start)
+    if (a > cursor) out.push({ kind, start: cursor, end: a })
+    const b = Math.min(to, window.end)
+    carved += b - a
+    cursor = Math.max(cursor, b)
+    if (cursor >= to) break
+  }
+  if (to > cursor) out.push({ kind, start: cursor, end: to })
+  return carved
 }

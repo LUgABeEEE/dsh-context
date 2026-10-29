@@ -334,6 +334,7 @@ export interface TimingTotals {
   calls: number
   toolsMs: number
   toolBusyMs?: number
+  idleMs?: number
   toolCalls: number
   tools: Record<string, ToolTimingTotals>
 }

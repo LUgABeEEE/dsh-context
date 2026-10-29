@@ -193,6 +193,7 @@ const timingTotalsSchema = z.object({
   calls: z.number().int().nonnegative(),
   toolsMs: z.number().nonnegative(),
   toolBusyMs: z.number().nonnegative().optional(),
+  idleMs: z.number().nonnegative().optional(),
   toolCalls: z.number().int().nonnegative(),
   tools: z.record(z.string(), toolTimingSchema),
 }).strict()
@@ -296,6 +297,8 @@ const timelineStateSchema = z.object({
   stepWaits: z.array(z.object({ start: z.number(), end: z.number() }).strict()).optional(),
   stepApprovals: z.record(z.string(), z.number()).optional(),
   stepRequestSeq: z.number().optional(),
+  stepBeats: z.array(z.number()).optional(),
+  stepBeatsFull: z.boolean().optional(),
   callNames: z.record(z.string(), z.object({ name: z.string(), start: z.number(), argsRaw: z.string().optional() }).strict()),
   pendingShadowedSeqs: z.array(z.number()).optional(),
   pendingShadowEventSeq: z.number().optional(),
@@ -321,7 +324,7 @@ export function createContextTimelineDefinition(config: Config, slim: () => bool
     wire: { viewSchema: contextTimelineSchema, view },
     init: () => createTimelineState(),
     apply: (state: TimelineState, event: SessionEvent) => applyTimeline(state, event as Parameters<typeof applyTimeline>[1], bounds),
-    stateVersion: 35,
+    stateVersion: 36,
   }
   return definition
 }

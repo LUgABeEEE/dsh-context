@@ -575,6 +575,7 @@ export function timingSumOf(rows: readonly OverviewRow[]): TimingTotals | null {
       addOptionalOf(out, t, 'toolArgMs')
       addOptionalOf(out, t, 'toolArgBlocks')
       addOptionalOf(out, t, 'toolBusyMs')
+      addOptionalOf(out, t, 'idleMs')
       addOptionalOf(out, t, 'speedTokens')
       addOptionalOf(out, t, 'speedMs')
       for (const name of Object.keys(t.tools)) {
@@ -596,7 +597,7 @@ function addOptionalOf(target: TimingTotals, source: TimingTotals, key: Optional
 }
 
 type OptionalTimingKey = 'reasoningMs' | 'reasoningBlocks' | 'textMs' | 'textBlocks'
-  | 'toolArgMs' | 'toolArgBlocks' | 'toolBusyMs' | 'speedTokens' | 'speedMs'
+  | 'toolArgMs' | 'toolArgBlocks' | 'toolBusyMs' | 'idleMs' | 'speedTokens' | 'speedMs'
 
 export interface TokenPartTotal {
   key: string

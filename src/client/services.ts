@@ -415,7 +415,7 @@ function timingFastOk(value: unknown): boolean {
   for (const k of ['wallMs', 'ttftMs', 'genMs', 'calls', 'toolsMs', 'toolCalls']) {
     if (typeof t[k] !== 'number') return false
   }
-  for (const k of ['reasoningMs', 'textMs', 'toolArgMs', 'reasoningBlocks', 'textBlocks', 'toolArgBlocks', 'toolBusyMs']) {
+  for (const k of ['reasoningMs', 'textMs', 'toolArgMs', 'reasoningBlocks', 'textBlocks', 'toolArgBlocks', 'toolBusyMs', 'idleMs']) {
     const v = t[k]
     if (v !== undefined && (typeof v !== 'number' || !Number.isFinite(v) || v < 0)) return false
   }
@@ -469,7 +469,18 @@ export function timingOf(value: unknown): TimingTotals | null {
   if (toolArgBlocks !== undefined) totals.toolArgBlocks = toolArgBlocks
   const toolBusyMs = optNumOf(data.toolBusyMs)
   if (toolBusyMs !== undefined) totals.toolBusyMs = toolBusyMs
+  const idleMs = optNumOf(data.idleMs)
+  if (idleMs !== undefined) totals.idleMs = idleMs
   return totals
+}
+
+export function activeMsOf(timing: TimingTotals | null | undefined): number {
+  const wall = timing !== null && timing !== undefined && Number.isFinite(timing.wallMs) && timing.wallMs > 0
+    ? timing.wallMs
+    : 0
+  const idle = timing?.idleMs
+  const carved = idle !== undefined && Number.isFinite(idle) && idle > 0 ? Math.min(idle, wall) : 0
+  return wall - carved
 }
 
 export function headersOf(value: unknown): ContextHeaders | null {

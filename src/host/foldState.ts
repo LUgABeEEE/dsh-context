@@ -49,6 +49,8 @@ export interface TimelineState {
   stepWaits?: { start: number; end: number }[]
   stepApprovals?: Record<string, number>
   stepRequestSeq?: number
+  stepBeats?: number[]
+  stepBeatsFull?: boolean
   spans: TimingSpan[]
   stepSpans?: TimingSpan[]
   callNames: Record<string, { name: string; start: number; argsRaw?: string }>

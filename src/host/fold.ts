@@ -32,7 +32,7 @@ import {
 } from './foldCommands'
 import { countTurnRuns, trimState } from './foldState'
 import type { CommandStateRecord, TimelineEvent, TimelineState } from './foldState'
-import { accumulateCost, addDecode, bumpToolTotals, DECODE_KINDS, durOf, ensureTiming, tokenCountOf } from './foldMetering'
+import { accumulateCost, addDecode, bumpToolTotals, carveWindows, DECODE_KINDS, durOf, ensureTiming, idleGapWindows, mergeWindows, tokenCountOf } from './foldMetering'
 import type { UsageLike } from './foldMetering'
 
 function categoryOf(type: string, message: { source?: MessageSource } | undefined): Category {
@@ -267,7 +267,22 @@ type CloneKey = 'surface' | 'sums' | 'requests' | 'events' | 'archived' | 'callN
 
 const CLONE_ALL: readonly CloneKey[] = ['surface', 'sums', 'requests', 'events', 'archived', 'callNames', 'fileOps', 'timing', 'commands']
 
+const STEP_BEATS_MAX = 1024
+
 export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds: FoldBounds): TimelineState {
+  if (state.stepStart === undefined || state.stepBeatsFull === true
+    || !Number.isFinite(event.time) || event.time < 0) {
+    return applyTimelineEvent(state, event, bounds)
+  }
+  const beats = state.stepBeats
+  const next = beats !== undefined && beats.length >= STEP_BEATS_MAX
+    ? { ...state, stepBeats: [], stepBeatsFull: true }
+    : { ...state, stepBeats: [...(beats ?? []), event.time] }
+  const applied = applyTimelineEvent(next, event, bounds)
+  return applied === next ? state : applied
+}
+
+function applyTimelineEvent(state: TimelineState, event: TimelineEvent, bounds: FoldBounds): TimelineState {
   let st: TimelineState | undefined
   const ensure = (keys: readonly CloneKey[] = CLONE_ALL): TimelineState => {
     st = { ...state }
@@ -493,6 +508,8 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
         delete s.stepWaits
         delete s.stepApprovals
         delete s.stepRequestSeq
+        delete s.stepBeats
+        delete s.stepBeatsFull
         break
       }
       case 'step/end': {
@@ -513,7 +530,8 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
         }
         const activeMs = durOf(start.time, event.time) - waitMs
         const last = state.requests.at(-1)
-        if (last !== undefined && last.seq === state.stepRequestSeq) {
+        const responseTime = last !== undefined && last.seq === state.stepRequestSeq ? last.time : undefined
+        if (responseTime !== undefined && last !== undefined) {
           s.requests[s.requests.length - 1] = { ...last, activeMs }
         }
         const painted: TimingSpan[] = []
@@ -523,25 +541,35 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
           if (to > from) painted.push({ kind: span.kind, start: from, end: to })
         }
         painted.sort((a, b) => (a.start - b.start) || (a.end - b.end))
+        const zoneStart = responseTime ?? start.time
+        const gapIdle = state.stepBeatsFull === true ? [] : idleGapWindows(state.stepBeats ?? [], start.time, event.time, zoneStart)
+        const waitIdle = mergeWindows(waits.map(w => ({ start: Math.max(w.start, zoneStart), end: Math.min(w.end, event.time) })))
+        const residueIdle = mergeWindows([...gapIdle, ...waitIdle])
         const flushed: TimingSpan[] = []
         let cursor = start.time
-        let toolBusyMs = 0
+        let idleMs = 0
         for (const span of painted) {
           const from = Math.max(cursor, span.start)
           if (span.end <= from) continue
-          if (from > cursor) flushed.push({ kind: 'other', start: cursor, end: from })
-          flushed.push({ kind: span.kind, start: from, end: span.end })
-          if (span.kind === 'tools') toolBusyMs += span.end - from
+          idleMs += carveWindows(flushed, 'other', cursor, from, residueIdle)
+          idleMs += carveWindows(flushed, span.kind, from, span.end, waitIdle)
           cursor = span.end
         }
-        if (event.time > cursor) flushed.push({ kind: 'other', start: cursor, end: event.time })
+        idleMs += carveWindows(flushed, 'other', cursor, event.time, residueIdle)
         s.spans = [...state.spans, ...flushed]
+        let toolBusyMs = 0
+        for (const span of flushed) {
+          if (span.kind === 'tools') toolBusyMs += span.end - span.start
+        }
         if (timing.toolBusyMs !== undefined) timing.toolBusyMs += toolBusyMs
+        if (idleMs > 0) timing.idleMs = (timing.idleMs ?? 0) + idleMs
         delete s.stepStart
         delete s.stepSpans
         delete s.stepWaits
         delete s.stepApprovals
         delete s.stepRequestSeq
+        delete s.stepBeats
+        delete s.stepBeatsFull
         bumpDetailRev(s)
         break
       }
