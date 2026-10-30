@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, test, vi } from 'vitest'
 import type { Context } from '@deepseek-ai/cordis'
-import { DEFAULT_RECOM, RECOM_DATA_URL, type Recom } from '../../src/shared/recoms'
+import { DEFAULT_RECOM, RECOM_DATA_MIRROR_URL, RECOM_DATA_URL, type Recom } from '../../src/shared/recoms'
 import { readRecom, resetRecomRotation, setRecomFetcher, RECOM_ROUTE, watchRecomChannel } from '../../src/host/recoms'
 
 function recom(id: string): Recom {
@@ -57,6 +57,23 @@ describe('recom reads', () => {
     assert.deepEqual(await readRecom(), DEFAULT_RECOM)
     setRecomFetcher(async () => response([recom('after-failure')]))
     assert.equal((await readRecom()).id, 'after-failure')
+  })
+
+  test('every primary failure falls through to the mirror before the default', async () => {
+    const failures: (() => Promise<Response>)[] = [
+      () => Promise.reject(new Error('down')),
+      () => Promise.resolve(response([], false)),
+      () => Promise.resolve(response([])),
+    ]
+    for (const fail of failures) {
+      const urls: string[] = []
+      setRecomFetcher(async (url) => {
+        urls.push(url)
+        return url === RECOM_DATA_URL ? fail() : response([recom('mirror')])
+      })
+      assert.equal((await readRecom()).id, 'mirror')
+      assert.deepEqual(urls, [RECOM_DATA_URL, RECOM_DATA_MIRROR_URL])
+    }
   })
 
   test('resetting the fetcher restores the real global fetch', async () => {

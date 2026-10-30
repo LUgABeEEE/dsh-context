@@ -1,5 +1,5 @@
 import type { Context } from '@deepseek-ai/cordis'
-import { DEFAULT_RECOM, RECOM_DATA_URL, recomsOfPayload, type Recom } from '../shared/recoms'
+import { DEFAULT_RECOM, RECOM_DATA_MIRROR_URL, RECOM_DATA_URL, recomsOfPayload, type Recom } from '../shared/recoms'
 import { type ConnectionHostFace, registerPostRoute } from './connection'
 
 export const RECOM_ROUTE = '/api/dsh-context/recom'
@@ -23,20 +23,20 @@ export function resetRecomRotation(): void {
 }
 
 export async function readRecom(): Promise<Recom> {
-  try {
-    const response = await fetcher(RECOM_DATA_URL, {
-      headers: { accept: 'application/json' },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    })
-    if (response.ok) {
+  for (const url of [RECOM_DATA_URL, RECOM_DATA_MIRROR_URL]) {
+    try {
+      const response = await fetcher(url, {
+        headers: { accept: 'application/json' },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      })
+      if (!response.ok) continue
       const recoms = recomsOfPayload(await response.json())
-      if (recoms.length > 0) {
-        const picked = recoms[rotation % recoms.length]
-        rotation++
-        return picked
-      }
+      if (recoms.length === 0) continue
+      const picked = recoms[rotation % recoms.length]
+      rotation++
+      return picked
+    } catch {
     }
-  } catch {
   }
   return DEFAULT_RECOM
 }

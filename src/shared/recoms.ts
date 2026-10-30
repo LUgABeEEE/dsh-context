@@ -15,6 +15,7 @@ export interface Recom {
 
 export const RECOM_REPOSITORY_ROOT = 'https://raw.githubusercontent.com/bowenliang123/dsh-context/main/'
 export const RECOM_DATA_URL = RECOM_REPOSITORY_ROOT + 'data/recoms.json'
+export const RECOM_DATA_MIRROR_URL = 'https://gh-proxy.org/' + RECOM_DATA_URL
 
 export const DEFAULT_RECOM: Recom = {
   id: 'deepseek-platform',
