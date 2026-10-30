@@ -14,6 +14,7 @@ import { createContextHeadersDefinition } from './headers'
 import { watchPromptInjection } from './promptInjection'
 import { watchStepIdentity } from './stepIdentity'
 import { watchSkillCatalog } from './skills'
+import { watchRecomChannel } from './recoms'
 import { createContextTimelineDefinition } from './timeline'
 import { detectHarnessVersion } from './version'
 import { meetsBaseline } from '../shared/version'
@@ -26,6 +27,7 @@ export { Config } from './config'
 export function apply(ctx: Context, config: Config): void {
   const coldReads = makeColdReadGate()
   watchBalanceChannel(ctx)
+  watchRecomChannel(ctx)
   watchSkillCatalog(ctx)
   watchFleetChannel(ctx, coldReads)
   watchAttachmentChannel(ctx, coldReads)
