@@ -86,3 +86,15 @@ body:not([data-ds-dark-theme]) .lc-stat { box-shadow: var(--lc-shadow-tile); }
 [data-conversation-scroll][data-lc-surface] > [data-composer-seat]:not(:has([data-approval-key], [data-question-key], [data-plan-review-key])) { display: none; }
 [data-conversation-scroll][data-lc-surface] ~ [data-width-handle],
 [data-conversation-scroll][data-lc-modal] ~ [data-width-handle] { display: none; }
+
+/* Coarse pointers: a phone has no hover and no pointer precision, so the controls that
+   were sized for a mouse become 44px hit areas without changing their visual weight.
+   The scroll bodies also stop handing their gesture to the page behind them. */
+@media (pointer: coarse) {
+  .lc-root :is(button, [role='button'], summary) { min-height: 44px; }
+  .lc-root :is(input:not([type='checkbox']):not([type='radio']), select, textarea) { min-height: 44px; }
+  .lc-root .lc-modal-close { min-width: 44px; min-height: 44px; }
+  .lc-root :is(button, [role='button'], a) { touch-action: manipulation; }
+  .lc-root,
+  .lc-ov-pagescroll { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+}
