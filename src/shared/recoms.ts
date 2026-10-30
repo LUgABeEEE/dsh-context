@@ -19,7 +19,7 @@ export const RECOM_DATA_URL = RECOM_REPOSITORY_ROOT + 'data/recoms.json'
 export const DEFAULT_RECOM: Recom = {
   id: 'deepseek-platform',
   name: 'DeepSeek',
-  url: 'https://www.deepseek.com/harness/',
+  url: 'https://platform.deepseek.com/',
   icon: 'https://cdn.simpleicons.org/deepseek',
   slogan: {
     zh: '探索未至之境。',
