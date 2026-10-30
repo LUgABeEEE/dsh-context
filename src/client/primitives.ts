@@ -39,6 +39,7 @@ export const IconContextInjection = resolveIcon('IconContextInjectionOutlineRegu
 export const IconFolderOpen = resolveIcon('IconFolderOpenOutlineRegular')
 export const IconApi = resolveIcon('IconApiOutlineRegular')
 export const IconPlugin = resolveIcon('IconPluginPinwheelOutlineRegular')
+export const IconSkill = resolveIcon('IconSkillOutlineRegular')
 
 export interface FileGlyphProps {
   path?: string

@@ -29,7 +29,7 @@ import { makeOverviewCard } from './overviewCard'
 import { makeOverviewSkills } from './overviewSkills'
 import { makeUpdatePill } from './updatePill'
 import { useLazyMount } from './useLazyMount'
-import { IconSettings } from '../primitives'
+import { IconGauge, IconSettings } from '../primitives'
 
 export interface OverviewPanelProps {
   useSessions?: unknown
@@ -236,7 +236,10 @@ export function makeOverviewPanel(
                     <div className="lc-ov-left">
                       <div className="lc-card lc-ov-heat-card">
                         <div className="lc-card-title">
-                          <span className="lc-card-title-text">{t('ov.heat.title')}</span>
+                          <span className="lc-card-title-text">
+                            <IconGauge size={14} />
+                            {t('ov.heat.title')}
+                          </span>
                           <span className="lc-heat-ctl">
                             <span className="lc-card-sub">{t('ov.heat.sub')}</span>
                             <div className="lc-gran" role="group" aria-label={t('ov.heat.metric')}>

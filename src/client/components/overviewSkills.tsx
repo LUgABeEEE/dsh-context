@@ -5,7 +5,7 @@ import type { SkillInfo } from '../../shared/types'
 import { relativeTime, type SkillLoadStat, type SkillSort } from '../overview'
 import { copySkillPath } from '../skills'
 import { nameColorOf } from '../nameColor'
-import { IconCheck, IconCopy } from '../primitives'
+import { IconCheck, IconCopy, IconSkill } from '../primitives'
 import type { ViewKit } from '../viewkit'
 import { ClearableInput } from './clearableInput'
 
@@ -214,7 +214,10 @@ export function makeOverviewSkills(kit: ViewKit): (props: OverviewSkillsProps) =
     return (
       <div className="lc-card lc-ov-skills-card">
         <div className="lc-card-title">
-          <span className="lc-card-title-text">{t('stats.skills')}</span>
+          <span className="lc-card-title-text">
+            <IconSkill size={14} />
+            {t('stats.skills')}
+          </span>
           {props.day !== null && props.day !== undefined && <span className="lc-card-sub">{props.day}</span>}
           {stats.length > 1 && (
             <div className="lc-gran" role="group" aria-label={t('ov.skills.sortLabel')}>
